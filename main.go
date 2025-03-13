@@ -1,13 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
 
@@ -95,6 +98,10 @@ func main() {
 	baseLogger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
 
 	proxy := httputil.NewSingleHostReverseProxy(remote)
+	// Debug MITM proxy
+	proxy.Transport = http.DefaultTransport
+	proxyUrl, _ := url.Parse("http://localhost:8080")
+	proxy.Transport.(*http.Transport).Proxy = http.ProxyURL(proxyUrl)
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		requestLogger := newCustomLogger(baseLogger, fmt.Sprintf("%s: ", strings.Split(r.RemoteAddr, ":")[0]))
@@ -104,20 +111,74 @@ func main() {
 			return
 		}
 
-		match, err := path.Match(filterPath, r.URL.Path)
-		if err != nil {
-			requestLogger.Printf("invalid filter_path: %s", r.URL)
-			return
-		}
-		if match && strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
-			err = newJob(r, w, requestLogger)
+		requestLogger.Printf("path: %s", r.URL.Path)
+		switch r.Method {
+		case "POST":
+			// File upload path
+			match, err := path.Match(filterPath, r.URL.Path)
 			if err != nil {
-				requestLogger.Printf("upload handler error: %v", err)
+				requestLogger.Printf("invalid filter_path: %s", r.URL)
+				return
 			}
-			return
+			if match && strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+				err = newJob(r, w, requestLogger)
+				if err != nil {
+					requestLogger.Printf("upload handler error: %v", err)
+				}
+				return
+			}
+			// Full sync: replace extension and checksum
+			match, _ = path.Match("/api/sync/full-sync", r.URL.Path)
+			if match {
+				client := &http.Client{}
+				destination := *remote
+				destination.Path = path.Join(destination.Path, r.URL.Path)
+				req, _ := http.NewRequest("POST", destination.String(), nil)
+				req.Header = r.Header
+				req.Body = r.Body
+				resp, _ := client.Do(req)
+				respJson, _ := io.ReadAll(resp.Body)
+				resp.Body.Close()
+				newJson := bytes.ReplaceAll(respJson, []byte("jxl"), []byte("jpg"))
+				newJson = bytes.ReplaceAll(newJson, []byte("Wew1zEcZSZRBVEQqVl7ouDDvbcE="), []byte("f5mnx6TkRuAcWA3WjKuOgKs2ceY="))
+				w.Write(newJson)
+				return
+			}
+		case "GET":
+			// File download path
+			match, _ := path.Match(filterPath+"/*/original", r.URL.Path)
+			if match {
+				requestLogger.Printf("downloading: %s", r.URL)
+				client := &http.Client{}
+				destination := *remote
+				destination.Path = path.Join(destination.Path, r.URL.Path)
+				req, _ := http.NewRequest("GET", destination.String(), nil)
+				req.Header = r.Header
+				resp, err := client.Do(req)
+				if err != nil {
+					requestLogger.Printf("download handler error: %v", err)
+				}
+				file, err := os.Create("./blob")
+				if err != nil {
+					requestLogger.Printf("failed to create file: %v", err)
+				}
+				defer file.Close()
+				io.Copy(file, resp.Body)
+				_, _ = file.Seek(0, io.SeekStart)
+				signature := make([]byte, 12)
+				_, _ = file.Read(signature)
+				if bytes.Equal(signature, []byte{0x00, 0x00, 0x00, 0x0C, 0x4A, 0x58, 0x4C, 0x20, 0x0D, 0x0A, 0x87, 0x0A}) {
+					cmd := exec.Command("djxl", "./blob", "test.jpg")
+					output, _ := cmd.CombinedOutput()
+					requestLogger.Printf("download complete: %s %s", r.URL, output)
+					open, _ := os.Open("./test.jpg")
+					_, err = io.Copy(w, open)
+					return
+				}
+			}
 		}
 
-		requestLogger.Printf("proxy: %s", r.URL)
+		//requestLogger.Printf("proxy: %s", r.URL)
 
 		r.Host = remote.Host
 		proxy.ServeHTTP(w, r)

@@ -27,4 +27,7 @@ go.work.sum
 # goreleaser
 dist/
 
+# JetBrains IDEs
+.idea/
+
 immich-upload-optimizer
