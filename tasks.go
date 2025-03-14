@@ -43,23 +43,18 @@ func NewTaskProcessor(filename string) (tp *TaskProcessor, err error) {
 		return nil, fmt.Errorf("unable to get file info: %w", err)
 	}
 
-	originalSize := stat.Size()
-	originalExtension := strings.ToLower(path.Ext(filename))
-
 	tp = &TaskProcessor{
 		OriginalFilename:  filepath.Base(filename),
 		OriginalFile:      originalFile,
-		OriginalExtension: originalExtension,
-		OriginalSize:      originalSize,
+		OriginalExtension: path.Ext(filename),
+		OriginalSize:      stat.Size(),
 	}
 
 	return
 }
 
 func NewTaskProcessorFromMultipart(file multipart.File, header *multipart.FileHeader) (tp *TaskProcessor, err error) {
-	originalSize := header.Size
-	originalExtension := strings.ToLower(path.Ext(header.Filename))
-
+	originalExtension := path.Ext(header.Filename)
 	if !isValidFilename(originalExtension) {
 		return nil, fmt.Errorf("invalid file extension: %s", originalExtension)
 	}
@@ -78,7 +73,7 @@ func NewTaskProcessorFromMultipart(file multipart.File, header *multipart.FileHe
 		OriginalFilename:  header.Filename,
 		OriginalFile:      originalFile,
 		OriginalExtension: originalExtension,
-		OriginalSize:      originalSize,
+		OriginalSize:      header.Size,
 
 		tempFileOriginalFile: originalFile.Name(),
 	}
@@ -100,7 +95,7 @@ func (tp *TaskProcessor) Process(tasks []Task) (err error) {
 	err = fmt.Errorf("no task found for file extension %s", tp.OriginalExtension)
 	var errors []error
 
-	checkExt := strings.TrimPrefix(tp.OriginalExtension, ".")
+	checkExt := strings.ToLower(strings.TrimPrefix(tp.OriginalExtension, "."))
 	for _, task := range tasks {
 		if !slices.Contains(task.Extensions, checkExt) {
 			continue
