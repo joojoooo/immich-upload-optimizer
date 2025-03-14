@@ -125,6 +125,7 @@ func main() {
 				if err != nil {
 					requestLogger.Printf("upload handler error: %v", err)
 				}
+				//TODO: save original file checksum
 				return
 			}
 			// Full sync: replace extension and checksum
@@ -144,10 +145,13 @@ func main() {
 				w.Write(newJson)
 				return
 			}
+			// Delta sync:
+			// Albums:
 		case "GET":
 			// File download path
 			match, _ := path.Match(filterPath+"/*/original", r.URL.Path)
 			if match {
+				//TODO: get file info and only download if JXL ext. Use tmp files and clean up
 				requestLogger.Printf("downloading: %s", r.URL)
 				client := &http.Client{}
 				destination := *remote
@@ -190,6 +194,10 @@ func main() {
 	}
 
 	log.Printf("Starting %s on %s...", printVersion(), listenAddr)
+	tmpDir := os.Getenv("TMPDIR")
+	if tmpDir != "" {
+		fmt.Println("tmp directory:", tmpDir)
+	}
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Error starting immich-upload-optimizer: %v", err)
 	}
