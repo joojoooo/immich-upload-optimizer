@@ -59,7 +59,7 @@ When a file is uploaded, IUO:
 ```yaml
 services:
   immich-upload-optimizer:
-    image: ghcr.io/miguelangel-nubla/immich-upload-optimizer:latest
+    image: ghcr.io/joojoooo/immich-upload-optimizer:latest
     tmpfs:
       - /tempfs
     ports:

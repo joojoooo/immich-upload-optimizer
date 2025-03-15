@@ -22,7 +22,7 @@ dockers:
     goos: linux
     goarch: amd64
     image_templates:
-    - "ghcr.io/miguelangel-nubla/{{.ProjectName}}:{{ .Tag }}-amd64"
+    - "ghcr.io/joojoooo/{{.ProjectName}}:{{ .Tag }}-amd64"
     dockerfile: 'Dockerfile.goreleaser'
     use: buildx
     build_flag_templates:
@@ -32,8 +32,8 @@ dockers:
     - "--label=org.opencontainers.image.title={{.ProjectName}}"
     - "--label=org.opencontainers.image.revision={{.FullCommit}}"
     - "--label=org.opencontainers.image.version={{.Version}}"
-    - "--label=org.opencontainers.image.url=https://github.com/miguelangel-nubla/{{ .ProjectName }}"
-    - "--label=org.opencontainers.image.source=https://github.com/miguelangel-nubla/{{ .ProjectName }}"
+    - "--label=org.opencontainers.image.url=https://github.com/joojoooo/{{ .ProjectName }}"
+    - "--label=org.opencontainers.image.source=https://github.com/joojoooo/{{ .ProjectName }}"
     extra_files:
     - config
     - LICENSE
@@ -41,7 +41,7 @@ dockers:
     goos: linux
     goarch: arm64
     image_templates:
-    - "ghcr.io/miguelangel-nubla/{{.ProjectName}}:{{ .Tag }}-arm64v8"
+    - "ghcr.io/joojoooo/{{.ProjectName}}:{{ .Tag }}-arm64v8"
     dockerfile: 'Dockerfile.goreleaser'
     use: buildx
     build_flag_templates:
@@ -51,32 +51,32 @@ dockers:
     - "--label=org.opencontainers.image.title={{.ProjectName}}"
     - "--label=org.opencontainers.image.revision={{.FullCommit}}"
     - "--label=org.opencontainers.image.version={{.Version}}"
-    - "--label=org.opencontainers.image.url=https://github.com/miguelangel-nubla/{{ .ProjectName }}"
-    - "--label=org.opencontainers.image.source=https://github.com/miguelangel-nubla/{{ .ProjectName }}"
+    - "--label=org.opencontainers.image.url=https://github.com/joojoooo/{{ .ProjectName }}"
+    - "--label=org.opencontainers.image.source=https://github.com/joojoooo/{{ .ProjectName }}"
     extra_files:
     - config
     - LICENSE
 docker_manifests:
   - 
-    name_template: ghcr.io/miguelangel-nubla/{{ .ProjectName }}:latest
+    name_template: ghcr.io/joojoooo/{{ .ProjectName }}:latest
     image_templates:
-    - ghcr.io/miguelangel-nubla/{{ .ProjectName }}:{{ .Tag }}-amd64
-    - ghcr.io/miguelangel-nubla/{{ .ProjectName }}:{{ .Tag }}-arm64v8
+    - ghcr.io/joojoooo/{{ .ProjectName }}:{{ .Tag }}-amd64
+    - ghcr.io/joojoooo/{{ .ProjectName }}:{{ .Tag }}-arm64v8
   - 
-    name_template: ghcr.io/miguelangel-nubla/{{ .ProjectName }}:{{ .Tag }}
+    name_template: ghcr.io/joojoooo/{{ .ProjectName }}:{{ .Tag }}
     image_templates:
-    - ghcr.io/miguelangel-nubla/{{ .ProjectName }}:{{ .Tag }}-amd64
-    - ghcr.io/miguelangel-nubla/{{ .ProjectName }}:{{ .Tag }}-arm64v8
+    - ghcr.io/joojoooo/{{ .ProjectName }}:{{ .Tag }}-amd64
+    - ghcr.io/joojoooo/{{ .ProjectName }}:{{ .Tag }}-arm64v8
   - 
-    name_template: ghcr.io/miguelangel-nubla/{{.ProjectName}}:v{{ .Major }}
+    name_template: ghcr.io/joojoooo/{{.ProjectName}}:v{{ .Major }}
     image_templates:
-    - ghcr.io/miguelangel-nubla/{{ .ProjectName }}:{{ .Tag }}-amd64
-    - ghcr.io/miguelangel-nubla/{{ .ProjectName }}:{{ .Tag }}-arm64v8
+    - ghcr.io/joojoooo/{{ .ProjectName }}:{{ .Tag }}-amd64
+    - ghcr.io/joojoooo/{{ .ProjectName }}:{{ .Tag }}-arm64v8
   - 
-    name_template: ghcr.io/miguelangel-nubla/{{.ProjectName}}:v{{ .Major }}.{{ .Minor }}
+    name_template: ghcr.io/joojoooo/{{.ProjectName}}:v{{ .Major }}.{{ .Minor }}
     image_templates:
-    - ghcr.io/miguelangel-nubla/{{ .ProjectName }}:{{ .Tag }}-amd64
-    - ghcr.io/miguelangel-nubla/{{ .ProjectName }}:{{ .Tag }}-arm64v8
+    - ghcr.io/joojoooo/{{ .ProjectName }}:{{ .Tag }}-amd64
+    - ghcr.io/joojoooo/{{ .ProjectName }}:{{ .Tag }}-arm64v8
 archives:
   - 
     files:

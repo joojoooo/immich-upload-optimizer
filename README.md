@@ -2,6 +2,24 @@
 
 Immich Upload Optimizer is a proxy designed to be placed in front of the Immich server. It intercepts file uploads and uses an external CLI program (by default [JPEG-XL](https://github.com/libjxl/libjxl), [Caesium](https://github.com/Lymphatus/caesium-clt) and [HandBrake](https://github.com/HandBrake/HandBrake)) to optimize, resize, or compress images and videos before they are stored on the Immich server. This helps save storage space on the Immich server by reducing the size of uploaded files.
 
+## About This Project
+
+This project is a fork of the original idea by [miguelangel-nubla/immich-upload-optimizer](https://github.com/miguelangel-nubla/immich-upload-optimizer).<br>
+It has been designed with the following key goals:
+
+- **Lower RAM usage for file upload on RAM (tmpfs)**  
+  Doesn't kill your disk
+- **Better mobile app compatibility**  
+  Doesn't show duplicate assets
+- **Seamless JXL->JPG conversion**  
+  Can automatically convert JXL to JPG on the fly when downloading images for better compatibility
+
+## 🌟 Support the Project
+
+Love this project? You can now [sponsor it on ko-fi](https://ko-fi.com/svilex) ! Every contribution helps keep the project growing and improving.
+
+[![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/svilex)
+
 ## Features
 
 - Intercepts file uploads to the Immich server.
@@ -57,11 +75,13 @@ services:
     docker compose restart
     ```
 
+3. Configure your **[tasks configuration file](TASKS.md)**
+
 ## Available flags
 
   - `-upstream`: The URL of the Immich server (e.g., `http://immich-server:2283`).
   - `-listen`: The address on which the proxy will listen (default: `:2284`).
-  - `-tasks_file`: Path to the [tasks configuration file](TASKS.md) (default: [/etc/immich-upload-optimizer/config/lossless.yaml](config/lossless.yaml)).
+  - `-tasks_file`: Path to the [tasks configuration file](TASKS.md) (default: [lossless.yaml](config/lossless.yaml)).
   - `-filter_path`: The path to filter file uploads (default: `/api/assets`).
   - `-filter_form_key`: The form key to filter file uploads (default: `assetData`).
 
@@ -71,23 +91,10 @@ services:
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request on GitHub.
-
-## About This Project 
-
-This project is a complete rewrite from scratch of the original idea by [JamesCullum/multipart-upload-proxy](https://github.com/JamesCullum/multipart-upload-proxy). It has been designed with the following key goals:
-
-- **Transparent Proxy for Immich**  
-  Eliminates the need for Cloudflare or reverse proxies with path redirection, offering seamless integration.
-
-- **Extensibility**  
-  Designed to support any CLI program or custom script, enabling custom workflows for file processing.
-
 ## Acknowledgements
 
-- [JamesCullum/multipart-upload-proxy](https://github.com/JamesCullum/multipart-upload-proxy) for the original idea.
+- [miguelangel-nubla/immich-upload-optimizer](https://github.com/miguelangel-nubla/immich-upload-optimizer) for the original idea.
+- [JamesCullum/multipart-upload-proxy](https://github.com/JamesCullum/multipart-upload-proxy)
 - [Caesium](https://github.com/Lymphatus/caesium)
 - [libjxl](https://github.com/libjxl/libjxl)
 - [HandBrakeCLI](https://github.com/HandBrake/HandBrake)
