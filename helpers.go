@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -75,4 +76,13 @@ func removeAllContents(dir string) error {
 		}
 		return os.Remove(path)
 	})
+}
+
+func getHTTPclient() (client *http.Client) {
+	if DevMITMproxy {
+		client = &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)}}
+	} else {
+		client = &http.Client{}
+	}
+	return
 }

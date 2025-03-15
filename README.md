@@ -79,13 +79,14 @@ services:
 
 ## Available flags
 
-  - `-upstream`: The URL of the Immich server (e.g., `http://immich-server:2283`).
+  - `-upstream`: The URL of the Immich server (default: `http://immich-server:2283`).
   - `-listen`: The address on which the proxy will listen (default: `:2284`).
   - `-tasks_file`: Path to the [tasks configuration file](TASKS.md) (default: [lossless.yaml](config/lossless.yaml)).
   - `-filter_path`: The path to filter file uploads (default: `/api/assets`).
   - `-filter_form_key`: The form key to filter file uploads (default: `assetData`).
+  - `-download_jpg_from_jxl`: Converts JXL images to JPG on download for wider compatibility (default: `false`).
 
-  All flags are available as enviroment variables using the prefix `IUO_`.
+  All flags are available as environment variables using the prefix `IUO_` followed by the uppercase flag.
 
 ## License
 

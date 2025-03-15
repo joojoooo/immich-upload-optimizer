@@ -119,13 +119,7 @@ func uploadUpstream(w http.ResponseWriter, r *http.Request, file io.ReadSeeker, 
 	req.Header = r.Header
 	req.Header.Set("Content-Type", multipartWriter.FormDataContentType())
 	// Send the request to the upstream server
-	var client *http.Client
-	if DevMITMproxy {
-		client = &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)}}
-	} else {
-		client = &http.Client{}
-	}
-	resp, err := client.Do(req)
+	resp, err := getHTTPclient().Do(req)
 	defer resp.Body.Close()
 	if err != nil {
 		select {
