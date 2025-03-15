@@ -14,21 +14,15 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	version = "dev"
-	commit  = "none"
-	date    = "unknown"
-)
+var version = "dev"
+var commit = "none"
+var date = "unknown"
 
 var remote *url.URL
+var proxyUrl *url.URL
 
-var (
-	maxConcurrentRequests = 10
-	semaphore             = make(chan struct{}, maxConcurrentRequests)
-)
-
-var jobChannels = make(map[string]chan *http.Response)
-var jobChannelsComplete = make(map[string]chan struct{})
+var maxConcurrentRequests = 10
+var semaphore = make(chan struct{}, maxConcurrentRequests)
 
 var showVersion bool
 var upstreamURL string
@@ -49,7 +43,7 @@ func init() {
 	viper.BindEnv("filter_form_key")
 
 	viper.SetDefault("upstream", "")
-	viper.SetDefault("listen", ":2283")
+	viper.SetDefault("listen", ":2284")
 	viper.SetDefault("tasks_file", "tasks.yaml")
 	viper.SetDefault("filter_path", "/api/assets")
 	viper.SetDefault("filter_form_key", "assetData")
@@ -68,72 +62,63 @@ func init() {
 	}
 
 	validateInput()
+
+	proxyUrl, _ = url.Parse("http://localhost:8080")
 }
 
-func validateInput() {
-	if upstreamURL == "" {
-		log.Fatal("the -upstream flag is required")
-	}
+var baseLogger *log.Logger
+var proxy *httputil.ReverseProxy
 
-	var err error
-	remote, err = url.Parse(upstreamURL)
-	if err != nil {
-		log.Fatalf("invalid upstream URL: %v", err)
-	}
-
-	if configFile == "" {
-		log.Fatal("the -tasks_file flag is required")
-	}
-
-	config, err = NewConfig(&configFile)
-	if err != nil {
-		log.Fatalf("error loading config file: %v", err)
-	}
-}
+const DevMITMproxy = true
 
 func main() {
-	baseLogger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
-
-	proxy := httputil.NewSingleHostReverseProxy(remote)
-
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		requestLogger := newCustomLogger(baseLogger, fmt.Sprintf("%s: ", strings.Split(r.RemoteAddr, ":")[0]))
-
-		if r.URL.Path == "/_immich-upload-optimizer/wait" {
-			continueJob(r, w, requestLogger)
-			return
-		}
-
-		match, err := path.Match(filterPath, r.URL.Path)
-		if err != nil {
-			requestLogger.Printf("invalid filter_path: %s", r.URL)
-			return
-		}
-		if match && strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
-			err = newJob(r, w, requestLogger)
-			if err != nil {
-				requestLogger.Printf("upload handler error: %v", err)
-			}
-			return
-		}
-
-		requestLogger.Printf("proxy: %s", r.URL)
-
-		r.Host = remote.Host
-		proxy.ServeHTTP(w, r)
-	}
-
-	server := &http.Server{
-		Addr:    listenAddr,
-		Handler: http.HandlerFunc(handler),
-	}
-
+	baseLogger = log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	log.Printf("Starting %s on %s...", printVersion(), listenAddr)
+	tmpDir := os.Getenv("TMPDIR")
+	if tmpDir != "" {
+		info, err := os.Stat(tmpDir)
+		if err == nil && info.IsDir() {
+			log.Printf("tmp directory: %s", tmpDir)
+			_ = removeAllContents(tmpDir)
+		} else {
+			panic("TMPDIR must be a directory")
+		}
+	} else {
+		log.Printf("no tmp directory set, uploaded files will be saved on disk multiple times, this can shorten your disk lifespan !")
+	}
+	// Proxy
+	proxy = httputil.NewSingleHostReverseProxy(remote)
+	if DevMITMproxy {
+		proxy.Transport = http.DefaultTransport
+		proxy.Transport.(*http.Transport).Proxy = http.ProxyURL(proxyUrl)
+	}
+	server := &http.Server{Addr: listenAddr, Handler: http.HandlerFunc(handleRequest)}
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Error starting immich-upload-optimizer: %v", err)
 	}
 }
 
-func printVersion() string {
-	return fmt.Sprintf("immich-upload-optimizer %s, commit %s, built at %s", version, commit, date)
+func handleRequest(w http.ResponseWriter, r *http.Request) {
+	requestLogger := newCustomLogger(baseLogger, fmt.Sprintf("%s: ", strings.Split(r.RemoteAddr, ":")[0]))
+
+	requestLogger.Printf("proxy path: %s", r.URL.Path)
+	switch r.Method {
+	case "POST":
+		match, err := path.Match(filterPath, r.URL.Path)
+		if err != nil {
+			requestLogger.Printf("invalid filter_path: %s", r.URL)
+			break
+		}
+		if match && strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+			err = newJob(r, w, requestLogger)
+			if err != nil {
+				requestLogger.Printf("upload error: %v", err)
+			}
+			return
+		}
+	case "GET":
+	}
+
+	r.Host = remote.Host
+	proxy.ServeHTTP(w, r)
 }

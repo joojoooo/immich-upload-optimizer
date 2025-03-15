@@ -40,7 +40,7 @@ func (task *Task) Init() (err error) {
 }
 
 type Config struct {
-	Tasks []Task `mapstructure:"tasks"`
+	Tasks []*Task `mapstructure:"tasks"`
 }
 
 func NewConfig(configFile *string) (*Config, error) {

@@ -1,29 +1,12 @@
 # Configuration File
 
-The YAML configuration file defines a list of tasks executed sequentially based on the file extension of the uploaded file.
+The YAML tasks config file defines a list of commands to execute on the uploaded file based on its extension.
 
 ## Usage
 
-1. **Task Execution**: Tasks run in order when the file extension matches.
-2. **Upload Refusal**: If no matching extension is found, the upload is rejected.
-3. **Preserving Extensions**: To leave files unchanged, set the command to an empty string.
-4. **Fallback Execution**: When multiple tasks match an extension, they execute in sequence. The process stops when a task completes successfully. If all tasks fail, the upload is blocked.
-
-## Configuration Structure
-
-The configuration file follows this format:
-
-```yaml
-tasks:
-  - name: taskA
-    command: <command> {{.folder}}/{{.name}}.{{.extension}} {{.folder}}/{{.name}}-new.ext && rm {{.folder}}/{{.name}}.{{.extension}}
-    extensions:
-      - jpeg
-  - name: taskB
-    command: <command 2> {{.folder}}/{{.name}}.{{.extension}} {{.folder}}/{{.name}}-new.ext && rm {{.folder}}/{{.name}}.{{.extension}}
-    extensions:
-      - png
-```
+- The first task in the list with a matching extension runs the command on the uploaded file
+- If no task with a matching extension is found, the original file is sent to immich
+- The command create only 1 file inside {{.result_folder}} at the end of a successful conversion, this file will be uploaded to immich no matter its name or extension
 
 ## Example Task
 
@@ -31,7 +14,7 @@ Below is an example task entry:
 
 ```yaml
   - name: jpeg-xl
-    command: cjxl --lossless_jpeg=1 {{.folder}}/{{.name}}.{{.extension}} {{.folder}}/{{.name}}-new.jxl && rm {{.folder}}/{{.name}}.{{.extension}}
+    command: cjxl --lossless_jpeg=1 {{.folder}}/{{.name}}.{{.extension}} {{.result_folder}}/{{.name}}-new.jxl
     extensions:
       - jpeg
       - jpg
@@ -46,9 +29,10 @@ This task processes `.jpeg` and `.jpg` files.
 
 To ensure proper file handling, use these placeholders in your commands:
 
-- `{{.folder}}`: Temporary working directory.
-- `{{.name}}`: Filename without extension.
-- `{{.extension}}`: File extension.
+- `{{.result_folder}}`: Where the processed file must be placed.
+- `{{.folder}}`: Directory the original file is in.
+- `{{.name}}`: Original file name without extension.
+- `{{.extension}}`: Original file extension.
 
 ## Process Overview
 
@@ -59,38 +43,44 @@ When a file is uploaded, IUO:
 3. Executes the configured task command:
 
    ```sh
-   cjxl --lossless_jpeg=1 {{.folder}}/{{.name}}.{{.extension}} {{.folder}}/{{.name}}-new.jxl && rm {{.folder}}/{{.name}}.{{.extension}}
+   cjxl --lossless_jpeg=1 {{.folder}}/{{.name}}.{{.extension}} {{.result_folder}}/{{.name}}-new.jxl
    ```
 
    This translates to:
 
    ```sh
-   cjxl --lossless_jpeg=1 /tmp/processing-3398346076/file-2612480203.jpg /tmp/processing-3398346076/file-2612480203-new.jxl && rm /tmp/processing-3398346076/file-2612480203.jpg
+   cjxl --lossless_jpeg=1 /tmp/file-2612480203.jpg /tmp/processing-3398346076/file-2612480203-new.jxl
    ```
 
-4. If successful, IUO replaces the original file with the processed one and uploads it to Immich.
+4. If successful, IUO takes the processed file and uploads it to Immich.
 
 ## Docker Setup
-
-If using Docker, remember to mount a folder containing the `tasks.yaml` configuration file inside the container in order to be able to load it:
 
 ```yaml
 services:
   immich-upload-optimizer:
     image: ghcr.io/miguelangel-nubla/immich-upload-optimizer:latest
+    tmpfs:
+      - /tempfs
     ports:
-      - "2283:2283"
-    volumes:
-      - <full path to config folder>:/etc/immich-upload-optimizer/config
+      - "2284:2284"
     environment:
       - IUO_UPSTREAM=http://immich-server:2283
+      - IUO_LISTEN=:2284
+      - IUO_TASKS_FILE=/etc/immich-upload-optimizer/config/lossless.yaml
+      - # Writes uploaded files in RAM to improve disk lifespan (Remove if running low on RAM)
+      - TMPDIR=/tempfs
     depends_on:
       - immich-server
+
+  immich-server:
+  # ...existing configuration...
+  # remove the ports section if you only want to access immich through the proxy.
 ```
 
 ## Additional Notes
 
 - Ensure file extensions and commands are correctly specified.
-- Tasks execute in the order they appear in the configuration file.
+- Tasks execute in the order they appear in the configuration file (from top to bottom).
 - Long-running tasks (e.g., video transcoding) may exceed HTTP timeouts. IUO attempts to mitigate this by sending periodic HTTP redirects, but tasks will continue in the background even if the client disconnects. The processed file will still be uploaded to Immich regardless of client disconnection.
 

@@ -2,12 +2,6 @@
 
 Immich Upload Optimizer is a proxy designed to be placed in front of the Immich server. It intercepts file uploads and uses an external CLI program (by default [JPEG-XL](https://github.com/libjxl/libjxl), [Caesium](https://github.com/Lymphatus/caesium-clt) and [HandBrake](https://github.com/HandBrake/HandBrake)) to optimize, resize, or compress images and videos before they are stored on the Immich server. This helps save storage space on the Immich server by reducing the size of uploaded files.
 
-## 🌟 Support the Project  
-
-Love this project? You can now [sponsor it on GitHub](https://github.com/sponsors/miguelangel-nubla)! Every contribution helps keep the project growing and improving.
-
-[![Sponsor on GitHub](https://img.shields.io/badge/Sponsor-GitHub-blue?style=for-the-badge&logo=github-sponsors)](https://github.com/sponsors/miguelangel-nubla)
-
 ## Features
 
 - Intercepts file uploads to the Immich server.
@@ -28,27 +22,34 @@ If you prefer to save more storage space, you can modify the optimization parame
 You can use [Caesium.app](https://caesium.app/) to experiment with different quality settings live before modifying the task according to the optimizer documentation. For the specific parameters, refer to the [Caesium CLI documentation](https://github.com/Lymphatus/caesium-clt). Alternatively, use [Squoosh.app](https://squoosh.app/) to do the same thing for the [JPEG-XL](https://github.com/libjxl/libjxl) converter.
 
 ### Video
-By default video conversion is disabled since no known lossless video transcoding will be smaller in size. However there is a lot of potential with lossy compression. HandBrake is included in the full image, take a look at how to do [lossy conversion](config/profile1/tasks.yaml).
+By default video conversion is disabled since no known lossless video transcoding will be smaller in size. However there is a lot of potential with lossy compression. HandBrake is included in the full image, take a look at how to do [lossy conversion](config/lossy.yaml).
 
 ## Usage via docker compose
 
-1. Update your Docker Compose configuration to route incoming connections through the proxy:
+1. Update your Docker Compose file:
 
-    ```yaml
-    services:
-      immich-upload-optimizer:
-        image: ghcr.io/miguelangel-nubla/immich-upload-optimizer:latest
-        ports:
-          - "2283:2283"
-        environment:
-          - IUO_UPSTREAM=http://immich-server:2283
-        depends_on:
-          - immich-server
 
-      immich-server:
-        # ...existing configuration...
-        # remove the ports section so incoming requests are handled by the proxy by default
-    ```
+```yaml
+services:
+  immich-upload-optimizer:
+    image: ghcr.io/miguelangel-nubla/immich-upload-optimizer:latest
+    tmpfs:
+      - /tempfs
+    ports:
+      - "2284:2284"
+    environment:
+      - IUO_UPSTREAM=http://immich-server:2283
+      - IUO_LISTEN=:2284
+      - IUO_TASKS_FILE=/etc/immich-upload-optimizer/config/lossless.yaml
+      - # Writes uploaded files in RAM to improve disk lifespan (Remove if running low on RAM)
+      - TMPDIR=/tempfs
+    depends_on:
+      - immich-server
+
+  immich-server:
+  # ...existing configuration...
+  # remove the ports section if you only want to access immich through the proxy.
+```
 
 2. Restart your Docker Compose services:
 
@@ -59,8 +60,8 @@ By default video conversion is disabled since no known lossless video transcodin
 ## Available flags
 
   - `-upstream`: The URL of the Immich server (e.g., `http://immich-server:2283`).
-  - `-listen`: The address on which the proxy will listen (default: `:2283`).
-  - `-tasks_file`: Path to the [tasks configuration file](TASKS.md).
+  - `-listen`: The address on which the proxy will listen (default: `:2284`).
+  - `-tasks_file`: Path to the [tasks configuration file](TASKS.md) (default: [/etc/immich-upload-optimizer/config/lossless.yaml](config/lossless.yaml)).
   - `-filter_path`: The path to filter file uploads (default: `/api/assets`).
   - `-filter_form_key`: The form key to filter file uploads (default: `assetData`).
 
