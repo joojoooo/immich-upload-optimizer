@@ -1,6 +1,9 @@
-FROM ubuntu:latest AS builder
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get -qq -y install jq curl
+FROM debian:sid-slim AS builder
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -qq -y \
+    jq \
+    curl \
+    tar
 
 ARG TARGETPLATFORM
 
@@ -15,15 +18,17 @@ RUN CAESIUM_LATEST_RELEASE=$(curl -s https://api.github.com/repos/$CAESIUM_GITHU
     && mv "/tmp/${CAESIUM_ARCHIVE}/caesiumclt" /usr/local/bin/caesiumclt
 
 FROM debian:sid-slim
-
-RUN apt-get update
-RUN DEBIAN_FRONTEND=noninteractive apt-get -qq -y install jq curl libjxl-tools libvips-tools exiftool
-RUN DEBIAN_FRONTEND=noninteractive apt-get --no-install-recommends -qq -y install handbrake-cli ffmpeg imagemagick
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install --no-install-recommends -qq -y \
+    libjxl-tools \
+    ffmpeg \
+    imagemagick \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /usr/local/bin/caesiumclt /usr/local/bin/caesiumclt
 
-COPY config/lossless.yaml /etc/immich-upload-optimizer/config
-COPY config /etc/immich-upload-optimizer/bundled-configs
+COPY config /etc/immich-upload-optimizer/config
 ENV IUO_TASKS_FILE=/etc/immich-upload-optimizer/config/lossless.yaml
 
 COPY immich-upload-optimizer /usr/local/bin/

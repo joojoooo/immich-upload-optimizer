@@ -1,56 +1,39 @@
 # Immich Upload Optimizer
+Immich Upload Optimizer (IOU) is a proxy designed to be placed in front of the [Immich](https://immich.app/) server. It intercepts file uploads and uses external CLI programs (by default: [JPEG-XL](https://jpegxl.info/) and [FFmpeg](https://www.ffmpeg.org/)) to optimize, resize, or compress images and videos to save storage space
 
-Immich Upload Optimizer is a proxy designed to be placed in front of the Immich server. It intercepts file uploads and uses an external CLI program (by default [JPEG-XL](https://github.com/libjxl/libjxl), [Caesium](https://github.com/Lymphatus/caesium-clt) and [HandBrake](https://github.com/HandBrake/HandBrake)) to optimize, resize, or compress images and videos before they are stored on the Immich server. This helps save storage space on the Immich server by reducing the size of uploaded files.
-
-## About This Project
-
-This project is a fork of the original idea by [miguelangel-nubla/immich-upload-optimizer](https://github.com/miguelangel-nubla/immich-upload-optimizer).<br>
-It has been designed with the following key goals:
-
-- **Lower RAM usage for file upload on RAM (tmpfs)**  
-  Doesn't kill your disk
-- **Better mobile app compatibility**  
-  Doesn't show duplicate assets
-- **Seamless JXL->JPG conversion**  
-  Can automatically convert JXL to JPG on the fly when downloading images for better compatibility
-
-## 🌟 Support the Project
-
-Love this project? You can now [sponsor it on ko-fi](https://ko-fi.com/svilex) ! Every contribution helps keep the project growing and improving.
+## ☕  Support the project
+Love this project? You can [support it on ko-fi](https://ko-fi.com/svilex)! Every contribution helps keep the project alive!
 
 [![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/svilex)
 
-## Features
+## 🎯 About
+This project is a fork of [miguelangel-nubla/immich-upload-optimizer](https://github.com/miguelangel-nubla/immich-upload-optimizer). It was created because the original author has different ideas and goals. This way I can add features faster, without having to convince or ask anyone
 
-- Intercepts file uploads to the Immich server.
-- You can use any external CLI program to optimize, resize, or compress files.
-- Designed to be easily integrated into existing Immich installations using Docker Compose.
+## ✨ Features
+Features that differentiate this fork from the original project:
 
-## Quality
+- **Longer disk lifespan**
+  - Writes temporary files to RAM by default (tmpfs). Frequently writing to disk reduce its lifespan
+  - Does less disk writes even with tmpfs disabled by not making useless copies of uploaded files
+- **Lower RAM usage**
+  - Does chunked uploads using io.Pipe: streaming small chunks from disk as they are sent. This prevents a copy in RAM of the whole file to be uploaded
+- **Usable mobile app**
+  - Doesn't show duplicate assets on the mobile app
+  - Replaces checksums and file names, making the app oblivious to the different file being uploaded
+  - The app won't try to upload the same files again because of checksum mismatch (even if you reinstall it)
+- **Automatic JXL->JPG conversion**
+  - Automatically converts JXL to JPG on the fly when downloading images for better compatibility
+- **Easier tasks config**
+  - Default passthrough of any unprocessed image/video instead of having to add an empty task and list all extensions to allow
+  - No need for a command to remove the original file, it's still needed if processing produces a bigger file size. IUO will delete it
 
-By default, Immich Upload Optimizer uses lossless optimization for **images**, ensuring that no information is lost during the image optimization process. This means that the quality of your images remains unchanged while reducing their file size.
-
-> [!NOTE]
-> Image viewer in Immich will not show the stored image, so you can find compression artifacts.
-> Download the file and open it with an external viewer to view the real image stored on your library.
-
-If you prefer to save more storage space, you can modify the optimization parameters to perform lossy optimization. This can reduce the file size considerably (around 80% less) while maintaining the same perceived quality. To do this, adjust the task command to use a lossy compression setting. Examples in [config](config/).
-
-### Images
-You can use [Caesium.app](https://caesium.app/) to experiment with different quality settings live before modifying the task according to the optimizer documentation. For the specific parameters, refer to the [Caesium CLI documentation](https://github.com/Lymphatus/caesium-clt). Alternatively, use [Squoosh.app](https://squoosh.app/) to do the same thing for the [JPEG-XL](https://github.com/libjxl/libjxl) converter.
-
-### Video
-By default video conversion is disabled since no known lossless video transcoding will be smaller in size. However there is a lot of potential with lossy compression. HandBrake is included in the full image, take a look at how to do [lossy conversion](config/lossy.yaml).
-
-## Usage via docker compose
-
-1. Update your Docker Compose file:
-
+## 🐋 Usage via Docker compose
+Edit your Immich Docker Compose file:
 
 ```yaml
 services:
   immich-upload-optimizer:
-    image: ghcr.io/miguelangel-nubla/immich-upload-optimizer:latest
+    image: ghcr.io/joojoooo/immich-upload-optimizer:latest
     tmpfs:
       - /tempfs
     ports:
@@ -59,7 +42,7 @@ services:
       - IUO_UPSTREAM=http://immich-server:2283
       - IUO_LISTEN=:2284
       - IUO_TASKS_FILE=/etc/immich-upload-optimizer/config/lossless.yaml
-      - # Writes uploaded files in RAM to improve disk lifespan (Remove if running low on RAM)
+      # Writes uploaded files in RAM to improve disk lifespan (Remove if running low on RAM)
       - TMPDIR=/tempfs
     depends_on:
       - immich-server
@@ -68,33 +51,37 @@ services:
   # ...existing configuration...
   # remove the ports section if you only want to access immich through the proxy.
 ```
+Start Docker containers:
+```sh
+docker compose up -d
+```
+Configure your **[tasks configuration file](TASKS.md)**
 
-2. Restart your Docker Compose services:
+## 🚩 Flags
+All flags are also available as environment variables using the prefix `IUO_` followed by the uppercase flag.
+- `-upstream`: The URL of the Immich server (default: `http://immich-server:2283`)
+- `-listen`: The address on which the proxy will listen (default: `:2284`)
+- `-tasks_file`: Path to the [tasks configuration file](TASKS.md) (default: [lossless.yaml](config/lossless.yaml))
+- `-filter_path`: The path to filter file uploads (default: `/api/assets`)
+- `-filter_form_key`: The form key to filter file uploads (default: `assetData`)
+- `-download_jpg_from_jxl`: Converts JXL images to JPG on download for wider compatibility (default: `false`)
 
-    ```sh
-    docker compose restart
-    ```
+## 📸 Images
+By default, Immich Upload Optimizer uses lossless **[JPEG-XL](https://jpegxl.info/)** for images, resulting in the same quality at a lower size. This allows for bit-accurate conversion back to the original JPEG, losing no information in the process.
+> [!NOTE]
+> Don't judge image compression artifacts by looking at the [Immich](https://github.com/immich-app/immich) low quality preview. Download the image and use an external viewer !
 
-3. Configure your **[tasks configuration file](TASKS.md)**
+If you want to save more storage space, modify your tasks config to perform lossy compression. This can reduce file size considerably (around -80%) while maintaining the same perceived quality. Examples in [config](config/)
+#### To experiment with different quality settings live before modifying the task: [Squoosh.app](https://squoosh.app/), [Caesium.app](https://caesium.app/)
 
-## Available flags
-
-  - `-upstream`: The URL of the Immich server (default: `http://immich-server:2283`).
-  - `-listen`: The address on which the proxy will listen (default: `:2284`).
-  - `-tasks_file`: Path to the [tasks configuration file](TASKS.md) (default: [lossless.yaml](config/lossless.yaml)).
-  - `-filter_path`: The path to filter file uploads (default: `/api/assets`).
-  - `-filter_form_key`: The form key to filter file uploads (default: `assetData`).
-  - `-download_jpg_from_jxl`: Converts JXL images to JPG on download for wider compatibility (default: `false`).
-
-  All flags are available as environment variables using the prefix `IUO_` followed by the uppercase flag.
+## 🎬 Videos
+By default video conversion is disabled since no known lossless video transcoding will be smaller in size. However there is a lot of potential with [lossy conversion](config/lossy.yaml)
 
 ## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details
 
 ## Acknowledgements
-
-- [miguelangel-nubla/immich-upload-optimizer](https://github.com/miguelangel-nubla/immich-upload-optimizer) for the original idea.
+- [miguelangel-nubla/immich-upload-optimizer](https://github.com/miguelangel-nubla/immich-upload-optimizer)
 - [JamesCullum/multipart-upload-proxy](https://github.com/JamesCullum/multipart-upload-proxy)
 - [Caesium](https://github.com/Lymphatus/caesium)
 - [libjxl](https://github.com/libjxl/libjxl)

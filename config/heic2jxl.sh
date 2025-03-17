@@ -9,8 +9,7 @@ fi
 ORIGINAL_FILE="${1}/${2}.${3}"
 RESULT_FILE_NO_EXT="${4}/${2}"
 
-if [[ $(exiftool -b -MotionPhoto "$ORIGINAL_FILE") -gt 0 ]]; then
-  echo "Original file is a HEIC Motion Photo, video will be lost"
-fi
-
-vips copy ${ORIGINAL_FILE} ${RESULT_FILE_NO_EXT}-new.jxl[Q=75]
+convert ${ORIGINAL_FILE} ${ORIGINAL_FILE}.png
+cjxl --lossless_jpeg=0 -q 75 ${ORIGINAL_FILE}.png ${RESULT_FILE_NO_EXT}.jxl
+rm ${ORIGINAL_FILE}.png
+#vips copy ${ORIGINAL_FILE} ${RESULT_FILE_NO_EXT}.jxl[Q=75]
