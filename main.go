@@ -106,6 +106,7 @@ func main() {
 }
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {
+	var err error
 	requestLogger := newCustomLogger(baseLogger, fmt.Sprintf("%s: ", strings.Split(r.RemoteAddr, ":")[0]))
 
 	requestLogger.Printf("proxy path: %s", r.URL.Path)
@@ -132,53 +133,49 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		if match {
 			//TODO: get asset info from immich and only download if JXL extension
 			requestLogger.Printf("converting: %s", r.URL)
+			requestLogger.SetErrPrefix("conversion error: ")
 			destination := *remote
 			destination.Path = path.Join(destination.Path, r.URL.Path)
-			req, err := http.NewRequest("GET", destination.String(), nil)
-			if requestLogger.Error(err, "conversion error: new GET") {
+
+			var req *http.Request
+			var resp *http.Response
+			var blob *os.File
+			if req, err = http.NewRequest("GET", destination.String(), nil); requestLogger.Error(err, "new GET") {
 				break
 			}
 			req.Header = r.Header
-			resp, err := getHTTPclient().Do(req)
-			if requestLogger.Error(err, "conversion error: getHTTPclient.Do") {
+			if resp, err = getHTTPclient().Do(req); requestLogger.Error(err, "getHTTPclient.Do") {
 				break
 			}
-			blob, err := os.CreateTemp("", "blob-*")
+			if blob, err = os.CreateTemp("", "blob-*"); requestLogger.Error(err, "blob create") {
+				break
+			}
 			cleanupBlob := func() { blob.Close(); _ = os.Remove(blob.Name()) }
 			defer cleanupBlob()
-			if requestLogger.Error(err, "conversion error: blob create") {
+			if _, err = io.Copy(blob, resp.Body); requestLogger.Error(err, "blob copy") {
 				break
 			}
-			_, err = io.Copy(blob, resp.Body)
 			resp.Body.Close()
-			if requestLogger.Error(err, "conversion error: blob copy") {
-				break
-			}
-			_, err = blob.Seek(0, io.SeekStart)
-			if requestLogger.Error(err, "conversion error: blob seek") {
+			if _, err = blob.Seek(0, io.SeekStart); requestLogger.Error(err, "blob seek") {
 				break
 			}
 			signature := make([]byte, 12)
-			_, err = blob.Read(signature)
-			if requestLogger.Error(err, "conversion error: blob read") {
+			if _, err = blob.Read(signature); requestLogger.Error(err, "blob read") {
 				break
 			}
 			if bytes.Equal(signature, []byte{0x00, 0x00, 0x00, 0x0C, 0x4A, 0x58, 0x4C, 0x20, 0x0D, 0x0A, 0x87, 0x0A}) {
-				fmt.Println(blob.Name())
-				cmd := exec.Command("djxl", blob.Name(), blob.Name()+".jpg")
-				output, err := cmd.CombinedOutput()
-				if requestLogger.Error(err, "conversion error: djxl") {
+				var output []byte
+				var open *os.File
+				if output, err = exec.Command("djxl", blob.Name(), blob.Name()+".jpg").CombinedOutput(); requestLogger.Error(err, "djxl") {
 					break
 				}
 				requestLogger.Printf("conversion complete: %s", strings.ReplaceAll(string(output), "\n", " - "))
 				cleanupBlob()
-				open, err := os.Open(blob.Name() + ".jpg")
-				defer func() { open.Close(); _ = os.Remove(open.Name()) }()
-				if requestLogger.Error(err, "conversion error: open jpg") {
+				if open, err = os.Open(blob.Name() + ".jpg"); requestLogger.Error(err, "open jpg") {
 					break
 				}
-				_, err = io.Copy(w, open)
-				if requestLogger.Error(err, "conversion error: write resp") {
+				defer func() { open.Close(); _ = os.Remove(open.Name()) }()
+				if _, err = io.Copy(w, open); requestLogger.Error(err, "write resp") {
 					break
 				}
 				return

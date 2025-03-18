@@ -3,8 +3,9 @@ package main
 import "log"
 
 type customLogger struct {
-	logger *log.Logger
-	prefix string
+	logger    *log.Logger
+	prefix    string
+	errPrefix string
 }
 
 func newCustomLogger(baseLogger interface{}, additionalPrefix string) *customLogger {
@@ -32,9 +33,13 @@ func (cl *customLogger) Printf(format string, v ...interface{}) {
 	cl.logger.Printf(cl.prefix+format, v...)
 }
 
-func (cl *customLogger) Error(err error, prefix string) bool {
+func (cl *customLogger) SetErrPrefix(prefix string) {
+	cl.errPrefix = prefix
+}
+
+func (cl *customLogger) Error(err error, errorType string) bool {
 	if err != nil {
-		cl.logger.Printf(cl.prefix+prefix+": %v", err)
+		cl.logger.Printf(cl.prefix+cl.errPrefix+errorType+": %v", err)
 		return true
 	}
 	return false
