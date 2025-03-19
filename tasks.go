@@ -141,7 +141,7 @@ func (tp *TaskProcessor) Run() error {
 	if err != nil {
 		return fmt.Errorf("unable to generate command to be Run: %w", err)
 	}
-	tp.logf("running task: %s", cmdLine.String())
+	tp.logf("running task: %s: %s", tp.Task.Name, cmdLine.String())
 	cmd := exec.Command("sh", "-c", cmdLine.String())
 	cmd.Dir = path.Dir(configFile)
 	output, err := cmd.CombinedOutput()

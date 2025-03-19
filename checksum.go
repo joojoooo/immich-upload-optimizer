@@ -71,3 +71,15 @@ func appendToCSV(key, value string) error {
 	}
 	return nil
 }
+
+type Asset map[string]any
+
+func (asset Asset) ToOriginalAsset() {
+	if c, ok := asset["checksum"]; ok {
+		if checksum, ok := c.(string); ok {
+			if original, ok := GetOriginalChecksum(checksum); ok {
+				asset["checksum"] = original
+			}
+		}
+	}
+}

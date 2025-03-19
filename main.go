@@ -14,7 +14,6 @@ import (
 	"os/exec"
 	"path"
 	"strings"
-	"sync"
 
 	"github.com/gorilla/websocket"
 	"github.com/spf13/viper"
@@ -108,42 +107,6 @@ func main() {
 	}
 }
 
-func modifyWebSocketData(cliConn, srvConn *websocket.Conn, logger *customLogger) {
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		var err error
-		var msgType int
-		var message []byte
-		for {
-			if msgType, message, err = srvConn.ReadMessage(); logger.Error(err, "srv ReadMessage") {
-				break
-			}
-			fmt.Printf("SRV: Type: %d Message: %s\n", msgType, message)
-			if err = cliConn.WriteMessage(msgType, message); logger.Error(err, "cli WriteMessage") {
-				break
-			}
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		var err error
-		var msgType int
-		var message []byte
-		for {
-			if msgType, message, err = cliConn.ReadMessage(); logger.Error(err, "cli ReadMessage") {
-				break
-			}
-			fmt.Printf("CLI: Type: %d Message: %s\n", msgType, message)
-			if err = srvConn.WriteMessage(msgType, message); logger.Error(err, "srv WriteMessage") {
-				break
-			}
-		}
-	}()
-	wg.Wait()
-}
-
 func handleRequest(w http.ResponseWriter, r *http.Request) {
 	var err error
 	requestLogger := newCustomLogger(baseLogger, fmt.Sprintf("%s: ", strings.Split(r.RemoteAddr, ":")[0]))
@@ -171,7 +134,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer srvConn.Close()
-		modifyWebSocketData(cliConn, srvConn, requestLogger)
+		handleWebSocketConn(cliConn, srvConn, requestLogger)
 		return
 	}
 	requestLogger.Printf("proxy path: %s", r.URL.String())
@@ -214,18 +177,12 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		if match {
-			var assets []map[string]any
+			var assets []Asset
 			if err = json.Unmarshal(jsonBuf, &assets); requestLogger.Error(err, "json unmarshal") {
 				break
 			}
 			for _, asset := range assets {
-				if c, ok := asset["checksum"]; ok {
-					if checksum, ok := c.(string); ok {
-						if original, ok := GetOriginalChecksum(checksum); ok {
-							asset["checksum"] = original
-						}
-					}
-				}
+				asset.ToOriginalAsset()
 			}
 			if jsonBuf, err = json.Marshal(assets); requestLogger.Error(err, "json marshal") {
 				break
@@ -242,13 +199,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 				if upserted, ok := up.([]any); ok {
 					for _, a := range upserted {
 						if asset, ok := a.(map[string]any); ok {
-							if c, ok := asset["checksum"]; ok {
-								if checksum, ok := c.(string); ok {
-									if original, ok := GetOriginalChecksum(checksum); ok {
-										asset["checksum"] = original
-									}
-								}
-							}
+							Asset(asset).ToOriginalAsset()
 						}
 					}
 				}
