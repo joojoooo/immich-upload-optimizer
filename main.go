@@ -14,7 +14,9 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"sync"
 
+	"github.com/gorilla/websocket"
 	"github.com/spf13/viper"
 )
 
@@ -106,13 +108,76 @@ func main() {
 	}
 }
 
+func modifyWebSocketData(cliConn, srvConn *websocket.Conn, logger *customLogger) {
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		var err error
+		var msgType int
+		var message []byte
+		for {
+			if msgType, message, err = srvConn.ReadMessage(); logger.Error(err, "srv ReadMessage") {
+				break
+			}
+			fmt.Printf("SRV: Type: %d Message: %s\n", msgType, message)
+			if err = cliConn.WriteMessage(msgType, message); logger.Error(err, "cli WriteMessage") {
+				break
+			}
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		var err error
+		var msgType int
+		var message []byte
+		for {
+			if msgType, message, err = cliConn.ReadMessage(); logger.Error(err, "cli ReadMessage") {
+				break
+			}
+			fmt.Printf("CLI: Type: %d Message: %s\n", msgType, message)
+			if err = srvConn.WriteMessage(msgType, message); logger.Error(err, "srv WriteMessage") {
+				break
+			}
+		}
+	}()
+	wg.Wait()
+}
+
 func handleRequest(w http.ResponseWriter, r *http.Request) {
 	var err error
 	requestLogger := newCustomLogger(baseLogger, fmt.Sprintf("%s: ", strings.Split(r.RemoteAddr, ":")[0]))
-	requestLogger.Printf("proxy path: %s", r.URL.Path)
+	if strings.ToLower(r.Header.Get("Upgrade")) == "websocket" {
+		requestLogger.SetErrPrefix("websocket")
+		requestLogger.Printf("websocket upgrade")
+		upgrader := websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				return true
+			},
+		}
+		var cliConn, srvConn *websocket.Conn
+		if cliConn, err = upgrader.Upgrade(w, r, nil); requestLogger.Error(err, "upgrade") {
+			return
+		}
+		defer cliConn.Close()
+		header := r.Header.Clone()
+		header.Del("Upgrade")
+		header.Del("Connection")
+		header.Del("Sec-Websocket-Key")
+		header.Del("Sec-Websocket-Version")
+		header.Del("Sec-Websocket-Extensions")
+		header.Del("Sec-Websocket-Protocol")
+		if srvConn, _, err = websocket.DefaultDialer.Dial("ws"+upstreamURL[strings.Index(upstreamURL, ":"):]+r.URL.String(), header); requestLogger.Error(err, "dial") {
+			return
+		}
+		defer srvConn.Close()
+		modifyWebSocketData(cliConn, srvConn, requestLogger)
+		return
+	}
+	requestLogger.Printf("proxy path: %s", r.URL.String())
 	switch r.Method {
 	case "POST":
-		requestLogger.SetErrPrefix("upload error: ")
+		requestLogger.SetErrPrefix("upload error")
 		var match, matchDelta bool
 		if match, err = path.Match(filterPath, r.URL.Path); requestLogger.Error(err, "invalid filter_path") {
 			break
@@ -123,7 +188,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Sync: replace checksum
-		requestLogger.SetErrPrefix("sync error: ")
+		requestLogger.SetErrPrefix("sync error")
 		if match, err = path.Match("/api/sync/full-sync", r.URL.Path); requestLogger.Error(err, "invalid filter_path") {
 			break
 		}
@@ -135,9 +200,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		var req *http.Request
 		var resp *http.Response
-		destination := *remote
-		destination.Path = path.Join(destination.Path, r.URL.Path)
-		if req, err = http.NewRequest("POST", destination.String(), nil); requestLogger.Error(err, "new POST") {
+		if req, err = http.NewRequest("POST", upstreamURL+r.URL.String(), nil); requestLogger.Error(err, "new POST") {
 			break
 		}
 		req.Header = r.Header
@@ -214,14 +277,12 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		if match {
 			//TODO: get asset info from immich and only download if JXL extension
 			requestLogger.Printf("converting: %s", r.URL)
-			requestLogger.SetErrPrefix("conversion error: ")
-			destination := *remote
-			destination.Path = path.Join(destination.Path, r.URL.Path)
+			requestLogger.SetErrPrefix("conversion error")
 
 			var req *http.Request
 			var resp *http.Response
 			var blob *os.File
-			if req, err = http.NewRequest("GET", destination.String(), nil); requestLogger.Error(err, "new GET") {
+			if req, err = http.NewRequest("GET", upstreamURL+r.URL.String(), nil); requestLogger.Error(err, "new GET") {
 				break
 			}
 			req.Header = r.Header

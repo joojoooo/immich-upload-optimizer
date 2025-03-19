@@ -42,5 +42,5 @@ cjxl --lossless_jpeg=1 /tmp/upload-2612480203.jpg /tmp/processing-3398346076/upl
 
 ## Additional Notes
 - The processing command **must not modify** the original file
-- Long-running tasks (e.g. video transcoding) may exceed HTTP timeouts. Tasks will continue in the background even if the client disconnects. The processed file will still be uploaded to Immich regardless of client disconnection
+- Long-running tasks (e.g. video transcoding) may exceed HTTP timeouts. Tasks will continue in the background even if the client disconnects. The processed file will still be uploaded to Immich regardless of client disconnection. A WebSocket is also used to notify upload success so this shouldn't really matter (web portal currently ignores those notifications)
 - Only 1 task per upload executes. If multiple tasks have the same extension, the one closer to the top of the config file executes

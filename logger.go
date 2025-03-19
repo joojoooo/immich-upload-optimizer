@@ -39,7 +39,7 @@ func (cl *customLogger) SetErrPrefix(prefix string) {
 
 func (cl *customLogger) Error(err error, errorType string) bool {
 	if err != nil {
-		cl.logger.Printf(cl.prefix+cl.errPrefix+errorType+": %v", err)
+		cl.logger.Printf(cl.prefix+cl.errPrefix+": "+errorType+": %v", err)
 		return true
 	}
 	return false

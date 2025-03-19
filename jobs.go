@@ -7,7 +7,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"path"
 )
 
 func newJob(r *http.Request, w http.ResponseWriter, logger *customLogger) error {
@@ -118,9 +117,7 @@ func uploadUpstream(w http.ResponseWriter, r *http.Request, file io.ReadSeeker, 
 		}
 		errChan <- nil
 	}()
-	destination := *remote
-	destination.Path = path.Join(destination.Path, r.URL.Path)
-	req, err := http.NewRequestWithContext(ctx, "POST", destination.String(), pipeReader)
+	req, err := http.NewRequestWithContext(ctx, "POST", upstreamURL+r.URL.String(), pipeReader)
 	if err != nil {
 		return fmt.Errorf("unable to create POST request: %w", err)
 	}
