@@ -23,6 +23,8 @@ func newJob(r *http.Request, w http.ResponseWriter, logger *customLogger) error 
 
 	jobLogger.Printf("download original: \"%s\" (%s)", formFileHeader.Filename, humanReadableSize(formFileHeader.Size))
 
+	var originalHash string
+	var newHash string
 	uploadFile := formFile
 	uploadFilename := formFileHeader.Filename
 	uploadOriginal := true
@@ -34,8 +36,7 @@ func newJob(r *http.Request, w http.ResponseWriter, logger *customLogger) error 
 		// Delete multipart file before running command. Saves RAM (tmpfs)
 		_ = formFile.Close()
 		_ = r.MultipartForm.RemoveAll()
-		err = taskProcessor.Run()
-		if err != nil {
+		if err = taskProcessor.Run(); err != nil {
 			return fmt.Errorf("failed to process file in job %s: %v", jobID, err.Error())
 		}
 		if taskProcessor.OriginalSize <= taskProcessor.ProcessedSize {
@@ -45,6 +46,9 @@ func newJob(r *http.Request, w http.ResponseWriter, logger *customLogger) error 
 			uploadFile = taskProcessor.ProcessedFile
 			uploadFilename = taskProcessor.ProcessedFilename
 			uploadOriginal = false
+			if originalHash, err = SHA1(taskProcessor.OriginalFile); err != nil {
+				return fmt.Errorf("sha1: %w", err)
+			}
 			_ = taskProcessor.CleanOriginalFile() // Save RAM before upload (tmpfs)
 		}
 	}
@@ -57,6 +61,10 @@ func newJob(r *http.Request, w http.ResponseWriter, logger *customLogger) error 
 	if uploadOriginal {
 		jobLogger.Printf("uploaded original: \"%s\" (%s)", formFileHeader.Filename, humanReadableSize(formFileHeader.Size))
 	} else {
+		if newHash, err = SHA1(taskProcessor.ProcessedFile); err != nil {
+			return fmt.Errorf("new sha1: %w", err)
+		}
+		AddChecksums(newHash, originalHash)
 		jobLogger.Printf("uploaded: \"%s\" (%s) <- (%s) \"%s\"", taskProcessor.ProcessedFilename, humanReadableSize(taskProcessor.ProcessedSize), humanReadableSize(taskProcessor.OriginalSize), taskProcessor.OriginalFilename)
 	}
 
@@ -132,10 +140,15 @@ func uploadUpstream(w http.ResponseWriter, r *http.Request, file io.ReadSeeker, 
 		return fmt.Errorf("unable to POST: %w", err)
 	}
 	// Send immich response back to client
+	for key, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
 	w.WriteHeader(resp.StatusCode)
 	_, err = io.Copy(w, resp.Body)
 	if err != nil {
-		return fmt.Errorf("unable to forward response back to client directly: %v", err)
+		return fmt.Errorf("unable to forward response to client: %v", err)
 	}
 
 	return nil

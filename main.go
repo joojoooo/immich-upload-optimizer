@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -49,7 +50,7 @@ func init() {
 
 	viper.SetDefault("upstream", "")
 	viper.SetDefault("listen", ":2284")
-	viper.SetDefault("tasks_file", "tasks.yaml")
+	viper.SetDefault("tasks_file", "config/lossless.yaml")
 	viper.SetDefault("filter_path", "/api/assets")
 	viper.SetDefault("filter_form_key", "assetData")
 	viper.SetDefault("download_jpg_from_jxl", false)
@@ -108,22 +109,102 @@ func main() {
 func handleRequest(w http.ResponseWriter, r *http.Request) {
 	var err error
 	requestLogger := newCustomLogger(baseLogger, fmt.Sprintf("%s: ", strings.Split(r.RemoteAddr, ":")[0]))
-
 	requestLogger.Printf("proxy path: %s", r.URL.Path)
 	switch r.Method {
 	case "POST":
-		match, err := path.Match(filterPath, r.URL.Path)
-		if err != nil {
-			requestLogger.Printf("invalid filter_path: %s", r.URL)
+		requestLogger.SetErrPrefix("upload error: ")
+		var match, matchDelta bool
+		if match, err = path.Match(filterPath, r.URL.Path); requestLogger.Error(err, "invalid filter_path") {
 			break
 		}
 		if match && strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
 			err = newJob(r, w, requestLogger)
-			if err != nil {
-				requestLogger.Printf("upload error: %v", err)
-			}
+			requestLogger.Error(err, "")
 			return
 		}
+		// Sync: replace checksum
+		requestLogger.SetErrPrefix("sync error: ")
+		if match, err = path.Match("/api/sync/full-sync", r.URL.Path); requestLogger.Error(err, "invalid filter_path") {
+			break
+		}
+		if matchDelta, err = path.Match("/api/sync/delta-sync", r.URL.Path); requestLogger.Error(err, "invalid filter_path") {
+			break
+		}
+		if !match && !matchDelta {
+			break
+		}
+		var req *http.Request
+		var resp *http.Response
+		destination := *remote
+		destination.Path = path.Join(destination.Path, r.URL.Path)
+		if req, err = http.NewRequest("POST", destination.String(), nil); requestLogger.Error(err, "new POST") {
+			break
+		}
+		req.Header = r.Header
+		req.Body = r.Body
+		if resp, err = getHTTPclient().Do(req); requestLogger.Error(err, "getHTTPclient.Do") {
+			break
+		}
+		defer resp.Body.Close()
+		var jsonBuf []byte
+		if jsonBuf, err = io.ReadAll(resp.Body); requestLogger.Error(err, "resp read") {
+			break
+		}
+		if match {
+			var assets []map[string]any
+			if err = json.Unmarshal(jsonBuf, &assets); requestLogger.Error(err, "json unmarshal") {
+				break
+			}
+			for _, asset := range assets {
+				if c, ok := asset["checksum"]; ok {
+					if checksum, ok := c.(string); ok {
+						if original, ok := GetOriginalChecksum(checksum); ok {
+							asset["checksum"] = original
+						}
+					}
+				}
+			}
+			if jsonBuf, err = json.Marshal(assets); requestLogger.Error(err, "json marshal") {
+				break
+			}
+		} else {
+			var deltaMap map[string]any
+			if err = json.Unmarshal(jsonBuf, &deltaMap); requestLogger.Error(err, "json unmarshal") {
+				break
+			}
+			for key, up := range deltaMap {
+				if key != "upserted" {
+					continue
+				}
+				if upserted, ok := up.([]any); ok {
+					for _, a := range upserted {
+						if asset, ok := a.(map[string]any); ok {
+							if c, ok := asset["checksum"]; ok {
+								if checksum, ok := c.(string); ok {
+									if original, ok := GetOriginalChecksum(checksum); ok {
+										asset["checksum"] = original
+									}
+								}
+							}
+						}
+					}
+				}
+				break
+			}
+			if jsonBuf, err = json.Marshal(deltaMap); requestLogger.Error(err, "json marshal") {
+				break
+			}
+		}
+		for key, values := range resp.Header {
+			for _, value := range values {
+				w.Header().Add(key, value)
+			}
+		}
+		if _, err = w.Write(jsonBuf); requestLogger.Error(err, "unable to forward response to client") {
+			break
+		}
+		return
+		// Albums:
 	case "GET":
 		// JXL download and JPG conversion
 		if !downloadJpgFromJxl {
