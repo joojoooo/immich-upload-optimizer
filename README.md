@@ -51,8 +51,13 @@ services:
   # ...existing configuration...
   # remove the ports section if you only want to access immich through the proxy.
 ```
-Start Docker containers:
+Run the appropriate commands at the `docker-compose.yml` location to stop, update and start the container:
 ```sh
+# Stop container and edit docker-compose.yml
+docker compose down
+# Pull updates
+docker compose pull
+# Start container
 docker compose up -d
 ```
 Configure your **[tasks configuration file](TASKS.md)**
@@ -62,8 +67,6 @@ All flags are also available as environment variables using the prefix `IUO_` fo
 - `-upstream`: The URL of the Immich server (default: `http://immich-server:2283`)
 - `-listen`: The address on which the proxy will listen (default: `:2284`)
 - `-tasks_file`: Path to the [tasks configuration file](TASKS.md) (default: [lossless.yaml](config/lossless.yaml))
-- `-filter_path`: The path to filter file uploads (default: `/api/assets`)
-- `-filter_form_key`: The form key to filter file uploads (default: `assetData`)
 - `-download_jpg_from_jxl`: Converts JXL images to JPG on download for compatibility (default: `false`)
 
 ## 📸 Images

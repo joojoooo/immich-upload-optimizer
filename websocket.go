@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/gorilla/websocket"
+	"net/http"
+	"strings"
 	"sync"
 )
 
@@ -50,7 +52,7 @@ func handleWebSocketConn(cliConn, srvConn *websocket.Conn, logger *customLogger)
 					continue
 				}
 				if asset := wsMsg.getAsset(); asset != nil && wsMsg.getAction() == "on_upload_success" {
-					asset.ToOriginalAsset()
+					asset.toOriginalAsset()
 					if message, err = json.Marshal(wsMsg); logger.Error(err, "json encode") {
 						continue
 					}
@@ -77,4 +79,25 @@ func handleWebSocketConn(cliConn, srvConn *websocket.Conn, logger *customLogger)
 		}
 	}()
 	wg.Wait()
+}
+
+func upgradeWebSocketRequest(w http.ResponseWriter, r *http.Request, logger *customLogger) {
+	var err error
+	logger.SetErrPrefix("websocket")
+	logger.Printf("websocket upgrade")
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+	var cliConn, srvConn *websocket.Conn
+	if cliConn, err = upgrader.Upgrade(w, r, nil); logger.Error(err, "upgrade") {
+		return
+	}
+	defer cliConn.Close()
+	if srvConn, _, err = websocket.DefaultDialer.Dial("ws"+upstreamURL[strings.Index(upstreamURL, ":"):]+r.URL.String(), webSocketSafeHeader(r.Header)); logger.Error(err, "dial") {
+		return
+	}
+	defer srvConn.Close()
+	handleWebSocketConn(cliConn, srvConn, logger)
 }

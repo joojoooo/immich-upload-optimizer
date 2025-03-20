@@ -63,7 +63,7 @@ func newJob(r *http.Request, w http.ResponseWriter, logger *customLogger) error 
 		if newHash, err = SHA1(taskProcessor.ProcessedFile); err != nil {
 			return fmt.Errorf("new sha1: %w", err)
 		}
-		AddChecksums(newHash, originalHash)
+		addChecksums(newHash, originalHash)
 		jobLogger.Printf("uploaded: \"%s\" (%s) <- (%s) \"%s\"", taskProcessor.ProcessedFilename, humanReadableSize(taskProcessor.ProcessedSize), humanReadableSize(taskProcessor.OriginalSize), taskProcessor.OriginalFilename)
 	}
 
@@ -137,11 +137,7 @@ func uploadUpstream(w http.ResponseWriter, r *http.Request, file io.ReadSeeker, 
 		return fmt.Errorf("unable to POST: %w", err)
 	}
 	// Send immich response back to client
-	for key, values := range resp.Header {
-		for _, value := range values {
-			w.Header().Add(key, value)
-		}
-	}
+	addHeaders(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
 	_, err = io.Copy(w, resp.Body)
 	if err != nil {

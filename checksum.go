@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"crypto/sha1"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -44,14 +46,14 @@ func init() {
 	}
 }
 
-func GetOriginalChecksum(fake string) (string, bool) {
+func getOriginalChecksum(fake string) (string, bool) {
 	mapLock.Lock()
 	defer mapLock.Unlock()
 	original, ok := fakeToOriginalChecksum[fake]
 	return original, ok
 }
 
-func AddChecksums(fake, original string) {
+func addChecksums(fake, original string) {
 	go func() {
 		mapLock.Lock()
 		fakeToOriginalChecksum[fake] = original
@@ -74,12 +76,113 @@ func appendToCSV(key, value string) error {
 
 type Asset map[string]any
 
-func (asset Asset) ToOriginalAsset() {
+func (asset Asset) toOriginalAsset() {
 	if c, ok := asset["checksum"]; ok {
 		if checksum, ok := c.(string); ok {
-			if original, ok := GetOriginalChecksum(checksum); ok {
+			if original, ok := getOriginalChecksum(checksum); ok {
+				//fmt.Printf("checksum: %s -> %s\n", checksum, original)
 				asset["checksum"] = original
 			}
 		}
 	}
+}
+
+func getChecksumReplacer(r *http.Request) checksumReplacer {
+	if isDeltaSync(r) {
+		return deltaChecksumReplacer{}
+	}
+	if isFullSync(r) {
+		return fullChecksumReplacer{}
+	}
+	if isAlbum(r) {
+		return albumChecksumReplacer{}
+	}
+	return nil
+}
+
+type checksumReplacer interface {
+	Replace(w http.ResponseWriter, r *http.Request, logger *customLogger) error
+}
+
+type albumChecksumReplacer struct{}
+type deltaChecksumReplacer struct{}
+type fullChecksumReplacer struct{}
+
+func (replacer albumChecksumReplacer) Replace(w http.ResponseWriter, r *http.Request, logger *customLogger) (err error) {
+	return replacerReplaceWithAssetsKey(w, r, logger, "assets")
+}
+
+func (replacer deltaChecksumReplacer) Replace(w http.ResponseWriter, r *http.Request, logger *customLogger) (err error) {
+	return replacerReplaceWithAssetsKey(w, r, logger, "upserted")
+}
+
+func (replacer fullChecksumReplacer) Replace(w http.ResponseWriter, r *http.Request, logger *customLogger) (err error) {
+	jsonBuf, err := replacerDoRequest(w, r, logger)
+	if err != nil {
+		return
+	}
+	var assets []Asset
+	if err = json.Unmarshal(jsonBuf, &assets); logger.Error(err, "json unmarshal") {
+		return
+	}
+	for _, asset := range assets {
+		asset.toOriginalAsset()
+	}
+	if jsonBuf, err = json.Marshal(assets); logger.Error(err, "json marshal") {
+		return
+	}
+	if _, err = w.Write(jsonBuf); logger.Error(err, "resp write") {
+		return
+	}
+	return nil
+}
+
+func replacerDoRequest(w http.ResponseWriter, r *http.Request, logger *customLogger) (jsonBuf []byte, err error) {
+	var req *http.Request
+	var resp *http.Response
+	if req, err = http.NewRequest(r.Method, upstreamURL+r.URL.String(), nil); logger.Error(err, "new POST") {
+		return
+	}
+	req.Header = r.Header
+	req.Body = r.Body
+	if resp, err = getHTTPclient().Do(req); logger.Error(err, "getHTTPclient.Do") {
+		return
+	}
+	defer resp.Body.Close()
+	if jsonBuf, err = io.ReadAll(resp.Body); logger.Error(err, "resp read") {
+		return
+	}
+	addHeaders(w.Header(), resp.Header)
+	return
+}
+
+func replacerReplaceWithAssetsKey(w http.ResponseWriter, r *http.Request, logger *customLogger, assetsKey string) (err error) {
+	jsonBuf, err := replacerDoRequest(w, r, logger)
+	if err != nil {
+		return
+	}
+	var assetsMap map[string]any
+	if err = json.Unmarshal(jsonBuf, &assetsMap); logger.Error(err, "json unmarshal") {
+		return
+	}
+	for key, value := range assetsMap {
+		if key != assetsKey {
+			continue
+		}
+		if assets, ok := value.([]any); ok {
+			for _, a := range assets {
+				if asset, ok := a.(map[string]any); ok {
+					Asset(asset).toOriginalAsset()
+				}
+			}
+		}
+		break
+	}
+	if jsonBuf, err = json.Marshal(assetsMap); logger.Error(err, "json marshal") {
+		return
+	}
+	if _, err = w.Write(jsonBuf); logger.Error(err, "resp write") {
+		return
+	}
+	return
 }

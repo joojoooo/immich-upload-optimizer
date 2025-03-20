@@ -8,7 +8,32 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 )
+
+var filterFormKey = "assetData"
+
+func isAssetsUpload(r *http.Request) bool {
+	return r.Method == "POST" && r.URL.Path == "/api/assets" && strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data")
+}
+
+func isFullSync(r *http.Request) bool {
+	return r.Method == "POST" && r.URL.Path == "/api/sync/full-sync"
+}
+
+func isDeltaSync(r *http.Request) bool {
+	return r.Method == "POST" && r.URL.Path == "/api/sync/delta-sync"
+}
+
+func isAlbum(r *http.Request) bool {
+	re := regexp.MustCompile(`^/api/albums/[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}$`)
+	return r.Method == "GET" && re.MatchString(r.URL.Path)
+}
+
+func isOriginalDownloadPath(r *http.Request) bool {
+	re := regexp.MustCompile(`^/api/assets/[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}/original$`)
+	return r.Method == "GET" && re.MatchString(r.URL.Path)
+}
 
 func humanReadableSize(size int64) string {
 	const (
@@ -85,4 +110,20 @@ func getHTTPclient() (client *http.Client) {
 		client = &http.Client{}
 	}
 	return
+}
+
+func addHeaders(h1, h2 http.Header) {
+	for key, values := range h2 {
+		for _, value := range values {
+			h1.Add(key, value)
+		}
+	}
+}
+
+func webSocketSafeHeader(header http.Header) http.Header {
+	header = header.Clone()
+	for _, v := range []string{"Upgrade", "Connection", "Sec-Websocket-Key", "Sec-Websocket-Version", "Sec-Websocket-Extensions", "Sec-Websocket-Protocol"} {
+		header.Del(v)
+	}
+	return header
 }
