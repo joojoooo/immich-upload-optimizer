@@ -9,7 +9,7 @@ tasks:
 
 # HEIC LivePhotos will lose the video
   - name: heic-to-avif
-    command: convert.sh "{{.folder}}" "{{.name}}" "{{.extension}}" "{{.result_folder}}" avif
+    command: ./convert.sh "{{.folder}}" "{{.name}}" "{{.extension}}" "{{.result_folder}}" avif
     extensions:
       - heic
       - heif

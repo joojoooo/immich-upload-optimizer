@@ -9,7 +9,7 @@ tasks:
 
   # HEIC LivePhotos will lose the video
   - name: heic-to-jxl
-    command: convert.sh "{{.folder}}" "{{.name}}" "{{.extension}}" "{{.result_folder}}" jxl
+    command: ./convert.sh "{{.folder}}" "{{.name}}" "{{.extension}}" "{{.result_folder}}" jxl
     extensions:
       - heic
       - heif
