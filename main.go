@@ -47,7 +47,7 @@ func init() {
 
 	viper.SetDefault("upstream", "")
 	viper.SetDefault("listen", ":2284")
-	viper.SetDefault("tasks_file", "config/lossless.yaml")
+	viper.SetDefault("tasks_file", "config/lossy_avif.yaml")
 	viper.SetDefault("download_jpg_from_jxl", false)
 
 	flag.BoolVar(&showVersion, "version", false, "Show the current version")

@@ -1,7 +1,0 @@
-# JPEG to Lossless JPEG-XL
-tasks:
-  - name: jpeg-xl
-    command: cjxl --lossless_jpeg=1 {{.folder}}/{{.name}}.{{.extension}} {{.result_folder}}/{{.name}}.jxl
-    extensions:
-      - jpeg
-      - jpg

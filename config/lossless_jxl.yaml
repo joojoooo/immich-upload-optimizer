@@ -1,0 +1,8 @@
+# JPEG to Lossless JPEG-XL
+# The JXL image can be converted back to the original JPEG with no quality loss (bit-accurate). Use IUO_DOWNLOAD_JPG_FROM_JXL env variable to do that automatically on download (must-have feature due to JXL poor compatibility)
+tasks:
+  - name: lossless-jpg-to-jxl
+    command: cjxl --lossless_jpeg=1 "{{.folder}}/{{.name}}.{{.extension}}" "{{.result_folder}}/{{.name}}.jxl"
+    extensions:
+      - jpeg
+      - jpg

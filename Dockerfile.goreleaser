@@ -21,6 +21,7 @@ FROM debian:sid-slim
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install --no-install-recommends -qq -y \
     libjxl-tools \
+    libavif-bin \
     ffmpeg \
     imagemagick \
     && apt-get clean \
@@ -29,7 +30,7 @@ RUN apt-get update && apt-get install --no-install-recommends -qq -y \
 COPY --from=builder /usr/local/bin/caesiumclt /usr/local/bin/caesiumclt
 
 COPY config /etc/immich-upload-optimizer/config
-ENV IUO_TASKS_FILE=/etc/immich-upload-optimizer/config/lossless.yaml
+ENV IUO_TASKS_FILE=/etc/immich-upload-optimizer/config/lossy_avif.yaml
 
 COPY immich-upload-optimizer /usr/local/bin/
 CMD ["immich-upload-optimizer"]

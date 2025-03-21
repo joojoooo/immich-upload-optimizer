@@ -1,0 +1,20 @@
+# JPEG,HEIC,HEIF to lossy JPEG-XL / MP4 to lossy H.265 CRF23 24fps
+# The JXL image can be converted to a high quality (NOT THE ORIGINAL) JPEG. Use IUO_DOWNLOAD_JPG_FROM_JXL env variable to do that automatically on download (must-have feature due to JXL poor compatibility)
+tasks:
+  - name: lossy-jpg-to-jxl
+    command: cjxl --lossless_jpeg=0 -q 75 "{{.folder}}/{{.name}}.{{.extension}}" "{{.result_folder}}/{{.name}}.jxl"
+    extensions:
+      - jpeg
+      - jpg
+
+  # HEIC LivePhotos will lose the video
+  - name: heic-to-jxl
+    command: convert.sh "{{.folder}}" "{{.name}}" "{{.extension}}" "{{.result_folder}}" jxl
+    extensions:
+      - heic
+      - heif
+
+  - name: ffmpeg
+    command: ffmpeg -i "{{.folder}}/{{.name}}.{{.extension}}" -c:v libx265 -crf 23 -filter:v fps=24 -c:a copy -preset fast -map_metadata 0 -tag:v hvc1 "{{.result_folder}}/{{.name}}.{{.extension}}"
+    extensions:
+      - mp4

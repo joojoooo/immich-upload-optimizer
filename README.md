@@ -1,5 +1,5 @@
 # Immich Upload Optimizer
-Immich Upload Optimizer (IOU) is a proxy designed to be placed in front of the [Immich](https://immich.app/) server. It intercepts file uploads and uses external CLI programs (by default: [JPEG-XL](https://jpegxl.info/) and [FFmpeg](https://www.ffmpeg.org/)) to optimize, resize, or compress images and videos to save storage space
+Immich Upload Optimizer (IOU) is a proxy designed to be placed in front of the [Immich](https://immich.app/) server. It intercepts file uploads and uses external CLI programs (by default: [AVIF](https://aomediacodec.github.io/av1-avif/), [JPEG-XL](https://jpegxl.info/), [FFmpeg](https://www.ffmpeg.org/)) to optimize, resize, or compress images and videos to save storage space
 
 ## ☕  Support the project
 Love this project? You can [support it on ko-fi](https://ko-fi.com/svilex)! Every contribution helps keep the project alive!
@@ -21,6 +21,8 @@ Features that differentiate this fork from the original project:
   - Doesn't show duplicate assets on the mobile app
   - Replaces checksums and file names, making the app oblivious to the different file being uploaded
   - The app won't try to upload the same files again because of checksum mismatch, even if you reinstall
+- **AVIF support**
+  - A more compatible open image format with similar quality/size to JXL
 - **Automatic JXL->JPG conversion**
   - Automatically converts JXL to JPG on the fly when downloading images for better compatibility
 - **Easier tasks config**
@@ -41,9 +43,11 @@ services:
     environment:
       - IUO_UPSTREAM=http://immich-server:2283
       - IUO_LISTEN=:2284
-      - IUO_TASKS_FILE=/etc/immich-upload-optimizer/config/lossless.yaml
+      - IUO_TASKS_FILE=/etc/immich-upload-optimizer/config/lossy_avif.yaml
       # Writes uploaded files in RAM to improve disk lifespan (Remove if running low on RAM)
       - TMPDIR=/tempfs
+      # Uncomment to enable JXL conversion
+      #- IUO_DOWNLOAD_JPG_FROM_JXL=true
     depends_on:
       - immich-server
 
@@ -66,19 +70,29 @@ Configure your **[tasks configuration file](TASKS.md)**
 All flags are also available as environment variables using the prefix `IUO_` followed by the uppercase flag.
 - `-upstream`: The URL of the Immich server (default: `http://immich-server:2283`)
 - `-listen`: The address on which the proxy will listen (default: `:2284`)
-- `-tasks_file`: Path to the [tasks configuration file](TASKS.md) (default: [lossless.yaml](config/lossless.yaml))
+- `-tasks_file`: Path to the [tasks configuration file](TASKS.md) (default: [lossy_avif.yaml](config/lossy_avif.yaml))
 - `-download_jpg_from_jxl`: Converts JXL images to JPG on download for compatibility (default: `false`)
 
 ## 📸 Images
-By default, Immich Upload Optimizer uses lossless **[JPEG-XL](https://jpegxl.info/)** for images, resulting in the same quality at a lower size. This allows for bit-accurate conversion back to the original JPEG, losing no information in the process.
-> [!NOTE]
-> Don't judge image compression artifacts by looking at the [Immich](https://github.com/immich-app/immich) low quality preview. Download the image and use an external viewer !
+**[AVIF](https://aomediacodec.github.io/av1-avif/)** is used by default, saving **~80%** space while maintaining the same perceived quality (lossy conversion)
+- It's an open format
+- Offers good compatibility: it's easy to view or share the image with others
+- Better than re-transcoding older formats (e.g., converting JPEG to a lower-quality JPEG)
 
-If you want to save more storage space, modify your tasks config to perform lossy compression. This can reduce file size considerably (around -80%) while maintaining the same perceived quality. Examples in [config](config/)<br>
-**To experiment with different quality settings live before modifying the task:** [Squoosh.app](https://squoosh.app/), [Caesium.app](https://caesium.app/)
+**[JPEG-XL](https://jpegxl.info/)** is a superior format to AVIF, has all AVIF's pros and more, except it lacks widespread compatibility 😔
+- Can losslessly convert JPEG to save **~20%** in space without losing any quality
+- Support bit-accurate conversion back to the original JPEG
+- A lossy JXL option is also available with similar quality/size ratio to AVIF
+
+If neither fits your needs, create your own conversion task: examples in [config](config)
+
+**To experiment with different quality settings live before modifying the task:** [squoosh.app](https://squoosh.app/), [caesium.app](https://caesium.app/)
+
+> [!NOTE]
+> Don't judge image compression artifacts by looking at the [Immich](https://github.com/immich-app/immich) low quality preview, zoom the image or download it and use an external viewer (Zooming on the Immich viewer will load the original image only if your browser is compatible with the format)
 
 ## 🎬 Videos
-By default video conversion is disabled since no known lossless video transcoding will be smaller in size. However there is a lot of potential with [lossy conversion](config/lossy.yaml)
+Lossy **[H.265](wikipedia.org/wiki/High_Efficiency_Video_Coding)** CRF23 24fps is used by default to ensure storage savings even for small videos, modify FPS and CRF values as you like in the [config](config)
 
 ## License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details

@@ -1,9 +1,9 @@
 # Configuration File
-The YAML tasks config file defines a list of commands to execute on the uploaded file based on its extension. [Examples here](config/)
+The YAML tasks config file defines a list of commands to execute on the uploaded file based on its extension. [Examples here](config)
 
 ## Commands
 The Docker container comes with some popular commands preinstalled which can be used to create custom tasks:<br>
-**Image:** [`cjxl`](https://github.com/libjxl/libjxl), [`caesiumclt`](https://github.com/Lymphatus/caesium-clt), [`magick`](https://imagemagick.org/script/command-line-tools.php)<br>
+**Image:** [`cjxl`](https://github.com/libjxl/libjxl), [`avifenc`](https://github.com/AOMediaCodec/libavif), [`caesiumclt`](https://github.com/Lymphatus/caesium-clt), [`magick`](https://imagemagick.org/script/command-line-tools.php)<br>
 **Video:** [`ffmpeg`](https://www.ffmpeg.org)
 
 ## Usage
@@ -14,7 +14,7 @@ The Docker container comes with some popular commands preinstalled which can be 
 ## Example Task
 ```yaml
   - name: jpeg-xl
-    command: cjxl --lossless_jpeg=1 {{.folder}}/{{.name}}.{{.extension}} {{.result_folder}}/{{.name}}.jxl
+    command: cjxl --lossless_jpeg=1 "{{.folder}}/{{.name}}.{{.extension}}" "{{.result_folder}}/{{.name}}.jxl"
     extensions:
       - jpeg
       - jpg
@@ -36,7 +36,7 @@ When a file is uploaded, IUO:
 - Executes the task command matching the file extension:
 ```sh
 # (with placeholders replaced)
-cjxl --lossless_jpeg=1 /tmp/upload-2612480203.jpg /tmp/processing-3398346076/upload-2612480203.jxl
+cjxl --lossless_jpeg=1 "/tmp/upload-2612480203.jpg" "/tmp/processing-3398346076/upload-2612480203.jxl"
 ```
 - If successful and 1 file is found in the processing folder, IUO uploads it to Immich
 
