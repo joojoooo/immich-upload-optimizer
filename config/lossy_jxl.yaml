@@ -1,4 +1,4 @@
-# JPEG,HEIC,HEIF to lossy JPEG-XL / MP4 to lossy H.265 CRF23 24fps
+# JPEG,HEIC,HEIF to lossy JPEG-XL / MP4 to lossy H.265 CRF23 60fps
 # The JXL image can be converted to a high quality (NOT THE ORIGINAL) JPEG. Use IUO_DOWNLOAD_JPG_FROM_JXL env variable to do that automatically on download (must-have feature due to JXL poor compatibility)
 tasks:
   - name: lossy-jpg-to-jxl
@@ -15,6 +15,6 @@ tasks:
       - heif
 
   - name: ffmpeg
-    command: ffmpeg -i "{{.folder}}/{{.name}}.{{.extension}}" -c:v libx265 -crf 23 -filter:v fps=24 -c:a copy -preset fast -map_metadata 0 -tag:v hvc1 "{{.result_folder}}/{{.name}}.{{.extension}}"
+    command: ffmpeg -noautorotate -i "{{.folder}}/{{.name}}.{{.extension}}" -c:v libx265 -crf 23 -filter:v fps=60 -c:a copy -preset fast -map_metadata 0 -movflags use_metadata_tags -tag:v hvc1 "{{.result_folder}}/{{.name}}.{{.extension}}"
     extensions:
       - mp4

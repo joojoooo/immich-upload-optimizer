@@ -92,7 +92,11 @@ If neither fits your needs, create your own conversion task: examples in [config
 > Don't judge image compression artifacts by looking at the [Immich](https://github.com/immich-app/immich) low quality preview, zoom the image or download it and use an external viewer (Zooming on the Immich viewer will load the original image only if your browser is compatible with the format)
 
 ## 🎬 Videos
-Lossy **[H.265](wikipedia.org/wiki/High_Efficiency_Video_Coding)** CRF23 24fps is used by default to ensure storage savings even for small videos, modify FPS and CRF values as you like in the [config](config)
+Lossy **[H.265](wikipedia.org/wiki/High_Efficiency_Video_Coding)** CRF23 60fps is used by default to ensure storage savings even for short videos while maintaining the same perceived quality.
+
+All metadata is preserved and the video is not rotated (a different rotation than the original would cause viewing issues in the immich app)<br>
+Lowering FPS or audio quality isn't worth it, would only give negligible file size savings for a much worse output<br>
+It's recommended to only modify CRF and -preset speed to achieve the quality and speed you're after
 
 ## License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details

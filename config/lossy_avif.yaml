@@ -1,4 +1,4 @@
-# JPEG,HEIC,HEIF to lossy AVIF / MP4 to lossy H.265 CRF23 24fps
+# JPEG,HEIC,HEIF to lossy AVIF / MP4 to lossy H.265 CRF23 60fps
 # The AVIF image has similar quality and size compared to JXL but wider compatibility: zooming on the immich preview will show the original AVIF image on any browser, it's much easier to view or share the image with others
 tasks:
   - name: lossy-jpg-to-avif
@@ -15,6 +15,6 @@ tasks:
       - heif
 
   - name: ffmpeg
-    command: ffmpeg -i "{{.folder}}/{{.name}}.{{.extension}}" -c:v libx265 -crf 23 -filter:v fps=24 -c:a copy -preset fast -map_metadata 0 -tag:v hvc1 "{{.result_folder}}/{{.name}}.{{.extension}}"
+    command: ffmpeg -noautorotate -i "{{.folder}}/{{.name}}.{{.extension}}" -c:v libx265 -crf 23 -filter:v fps=60 -c:a copy -preset fast -map_metadata 0 -movflags use_metadata_tags -tag:v hvc1 "{{.result_folder}}/{{.name}}.{{.extension}}"
     extensions:
       - mp4

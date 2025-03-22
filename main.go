@@ -107,7 +107,12 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		upgradeWebSocketRequest(w, r, logger)
 		return
 	}
-	logger.Printf("proxy: %s", r.URL.String())
+	defer func() {
+		// Only print URL if the request was handled by IUO
+		if logger.HasErrPrefix() {
+			logger.Printf("request URL: %s", r.URL.String())
+		}
+	}()
 	switch {
 	case isAssetsUpload(r):
 		err = newJob(r, w, logger)
