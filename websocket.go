@@ -52,7 +52,9 @@ func handleWebSocketConn(cliConn, srvConn *websocket.Conn, logger *customLogger)
 					continue
 				}
 				if asset := wsMsg.getAsset(); asset != nil && wsMsg.getAction() == "on_upload_success" {
+					mapLock.RLock()
 					asset.toOriginalAsset()
+					mapLock.RUnlock()
 					if message, err = json.Marshal(wsMsg); logger.Error(err, "json encode") {
 						continue
 					}

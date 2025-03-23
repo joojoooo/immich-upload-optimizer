@@ -25,7 +25,7 @@ func SHA1(file io.ReadSeeker) (string, error) {
 }
 
 var ChecksumsCsvPath string
-var mapLock sync.Mutex
+var mapLock sync.RWMutex
 var fakeToOriginalChecksum map[string]string
 
 func init() {
@@ -44,13 +44,6 @@ func init() {
 	if err := scanner.Err(); err != nil {
 		fmt.Println("Error reading csv:", err)
 	}
-}
-
-func getOriginalChecksum(fake string) (string, bool) {
-	mapLock.Lock()
-	defer mapLock.Unlock()
-	original, ok := fakeToOriginalChecksum[fake]
-	return original, ok
 }
 
 func addChecksums(fake, original string) {
@@ -76,10 +69,11 @@ func appendToCSV(key, value string) error {
 
 type Asset map[string]any
 
+// toOriginalAsset: Must acquire mapLock.RLock() before calling
 func (asset Asset) toOriginalAsset() {
 	if c, ok := asset["checksum"]; ok {
 		if checksum, ok := c.(string); ok {
-			if original, ok := getOriginalChecksum(checksum); ok {
+			if original, ok := fakeToOriginalChecksum[checksum]; ok {
 				//fmt.Printf("checksum: %s -> %s\n", checksum, original)
 				asset["checksum"] = original
 			}
@@ -109,11 +103,11 @@ type deltaChecksumReplacer struct{}
 type fullChecksumReplacer struct{}
 
 func (replacer albumChecksumReplacer) Replace(w http.ResponseWriter, r *http.Request, logger *customLogger) (err error) {
-	return replacerReplaceWithAssetsKey(w, r, logger, "assets")
+	return replacerWithAssetsKey(w, r, logger, "assets")
 }
 
 func (replacer deltaChecksumReplacer) Replace(w http.ResponseWriter, r *http.Request, logger *customLogger) (err error) {
-	return replacerReplaceWithAssetsKey(w, r, logger, "upserted")
+	return replacerWithAssetsKey(w, r, logger, "upserted")
 }
 
 func (replacer fullChecksumReplacer) Replace(w http.ResponseWriter, r *http.Request, logger *customLogger) (err error) {
@@ -125,9 +119,11 @@ func (replacer fullChecksumReplacer) Replace(w http.ResponseWriter, r *http.Requ
 	if err = json.Unmarshal(jsonBuf, &assets); logger.Error(err, "json unmarshal") {
 		return
 	}
+	mapLock.RLock()
 	for _, asset := range assets {
 		asset.toOriginalAsset()
 	}
+	mapLock.RUnlock()
 	if jsonBuf, err = json.Marshal(assets); logger.Error(err, "json marshal") {
 		return
 	}
@@ -156,7 +152,7 @@ func replacerDoRequest(w http.ResponseWriter, r *http.Request, logger *customLog
 	return
 }
 
-func replacerReplaceWithAssetsKey(w http.ResponseWriter, r *http.Request, logger *customLogger, assetsKey string) (err error) {
+func replacerWithAssetsKey(w http.ResponseWriter, r *http.Request, logger *customLogger, assetsKey string) (err error) {
 	jsonBuf, err := replacerDoRequest(w, r, logger)
 	if err != nil {
 		return
@@ -170,11 +166,13 @@ func replacerReplaceWithAssetsKey(w http.ResponseWriter, r *http.Request, logger
 			continue
 		}
 		if assets, ok := value.([]any); ok {
+			mapLock.RLock()
 			for _, a := range assets {
 				if asset, ok := a.(map[string]any); ok {
 					Asset(asset).toOriginalAsset()
 				}
 			}
+			mapLock.RUnlock()
 		}
 		break
 	}
