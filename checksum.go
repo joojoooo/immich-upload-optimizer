@@ -24,14 +24,12 @@ func SHA1(file io.ReadSeeker) (string, error) {
 	return base64.StdEncoding.EncodeToString(hasher.Sum(nil)), nil
 }
 
-var ChecksumsCsvPath string
 var mapLock sync.RWMutex
 var fakeToOriginalChecksum map[string]string
 
-func init() {
+func initChecksums() {
 	fakeToOriginalChecksum = make(map[string]string)
-	ChecksumsCsvPath = "checksums.csv"
-	file, err := os.OpenFile(ChecksumsCsvPath, os.O_CREATE|os.O_RDONLY, 0644)
+	file, err := os.OpenFile(checksumsFile, os.O_CREATE|os.O_RDONLY, 0644)
 	if err != nil {
 		return
 	}
@@ -56,7 +54,7 @@ func addChecksums(fake, original string) {
 }
 
 func appendToCSV(key, value string) error {
-	file, err := os.OpenFile(ChecksumsCsvPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(checksumsFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}

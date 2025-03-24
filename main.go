@@ -33,6 +33,7 @@ var showVersion bool
 var upstreamURL string
 var listenAddr string
 var configFile string
+var checksumsFile string
 var downloadJpgFromJxl bool
 
 var config *Config
@@ -48,12 +49,14 @@ func init() {
 	viper.SetDefault("upstream", "")
 	viper.SetDefault("listen", ":2284")
 	viper.SetDefault("tasks_file", "config/lossy_avif.yaml")
+	viper.SetDefault("checksums_file", "checksums.csv")
 	viper.SetDefault("download_jpg_from_jxl", false)
 
 	flag.BoolVar(&showVersion, "version", false, "Show the current version")
 	flag.StringVar(&upstreamURL, "upstream", viper.GetString("upstream"), "Upstream URL. Example: http://immich-server:2283")
 	flag.StringVar(&listenAddr, "listen", viper.GetString("listen"), "Listening address")
 	flag.StringVar(&configFile, "tasks_file", viper.GetString("tasks_file"), "Path to the configuration file")
+	flag.StringVar(&checksumsFile, "checksums_file", viper.GetString("checksums_file"), "Path to the checksums file")
 	flag.BoolVar(&downloadJpgFromJxl, "download_jpg_from_jxl", viper.GetBool("download_jpg_from_jxl"), "Converts JXL images to JPG on download for wider compatibility")
 	flag.Parse()
 
@@ -65,6 +68,7 @@ func init() {
 	validateInput()
 
 	proxyUrl, _ = url.Parse("http://localhost:8080")
+	initChecksums()
 }
 
 var baseLogger *log.Logger

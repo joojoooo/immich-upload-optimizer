@@ -44,10 +44,11 @@ services:
       - IUO_UPSTREAM=http://immich-server:2283
       - IUO_LISTEN=:2284
       - IUO_TASKS_FILE=/etc/immich-upload-optimizer/config/lossy_avif.yaml
-      # Writes uploaded files in RAM to improve disk lifespan (Remove if running low on RAM)
-      - TMPDIR=/tempfs
-      # Uncomment to enable JXL conversion
-      #- IUO_DOWNLOAD_JPG_FROM_JXL=true
+      #- IUO_CHECKSUMS_FILE=/IUO/checksums.csv # Uncomment after defining a volume
+      - TMPDIR=/tempfs # Writes uploaded files in RAM to improve disk lifespan (Remove if running low on RAM)
+      #- IUO_DOWNLOAD_JPG_FROM_JXL=true # Uncomment to enable JXL conversion
+    volumes:
+      #- /path/to/your/host/dir:/IUO # Keep the checksums and tasks files between updates by defining a volume
     depends_on:
       - immich-server
 
@@ -70,7 +71,8 @@ Configure your **[tasks configuration file](TASKS.md)**
 All flags are also available as environment variables using the prefix `IUO_` followed by the uppercase flag.
 - `-upstream`: The URL of the Immich server (default: `http://immich-server:2283`)
 - `-listen`: The address on which the proxy will listen (default: `:2284`)
-- `-tasks_file`: Path to the [tasks configuration file](TASKS.md) (default: [lossy_avif.yaml](config/lossy_avif.yaml))
+- `-tasks_file`: Path to the [configuration file](TASKS.md) (default: [`lossy_avif.yaml`](config/lossy_avif.yaml))
+- `-checksums_file`: Path to the checksums file (default: `checksums.csv`)
 - `-download_jpg_from_jxl`: Converts JXL images to JPG on download for compatibility (default: `false`)
 
 ## 📸 Images
