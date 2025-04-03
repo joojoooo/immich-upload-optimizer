@@ -12,7 +12,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"reflect"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -128,9 +127,9 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	default:
-		if replacer := getChecksumReplacer(r); replacer != nil {
-			logger.SetErrPrefix(strings.TrimPrefix(reflect.TypeOf(replacer).String(), "main."))
-			err = replacer.Replace(w, r, logger)
+		if replacer := getChecksumReplacer(w, r, logger); replacer != nil {
+			logger.SetErrPrefix(fmt.Sprintf("replacer %d", replacer.typeId))
+			err = replacer.Replace()
 			if err == nil {
 				return
 			}

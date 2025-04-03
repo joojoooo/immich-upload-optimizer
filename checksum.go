@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -90,40 +91,42 @@ func (asset Asset) toOriginalAsset() {
 	}
 }
 
-func getChecksumReplacer(r *http.Request) checksumReplacer {
+func getChecksumReplacer(w http.ResponseWriter, r *http.Request, logger *customLogger) *Replacer {
 	if isDeltaSync(r) {
-		return deltaChecksumReplacer{}
+		return &Replacer{w, r, logger, TypeDelta}
 	}
 	if isFullSync(r) {
-		return fullChecksumReplacer{}
+		return &Replacer{w, r, logger, TypeFull}
 	}
 	if isAlbum(r) {
-		return albumChecksumReplacer{}
+		return &Replacer{w, r, logger, TypeAlbum}
+	}
+	if isBucket(r) {
+		return &Replacer{w, r, logger, TypeBucket}
+	}
+	if isAssetView(r) {
+		return &Replacer{w, r, logger, TypeAssetView}
 	}
 	return nil
 }
 
-type checksumReplacer interface {
-	Replace(w http.ResponseWriter, r *http.Request, logger *customLogger) error
+type Replacer struct {
+	w      http.ResponseWriter
+	r      *http.Request
+	logger *customLogger
+	typeId int
 }
 
-type albumChecksumReplacer struct{}
-type deltaChecksumReplacer struct{}
-type fullChecksumReplacer struct{}
+const (
+	TypeAlbum = iota
+	TypeDelta
+	TypeFull
+	TypeBucket
+	TypeAssetView
+)
 
-func (replacer albumChecksumReplacer) Replace(w http.ResponseWriter, r *http.Request, logger *customLogger) (err error) {
-	return replacerWithAssetsKey(w, r, logger, "assets")
-}
-
-func (replacer deltaChecksumReplacer) Replace(w http.ResponseWriter, r *http.Request, logger *customLogger) (err error) {
-	return replacerWithAssetsKey(w, r, logger, "upserted")
-}
-
-func (replacer fullChecksumReplacer) Replace(w http.ResponseWriter, r *http.Request, logger *customLogger) (err error) {
-	return replacerWithAssetsKey(w, r, logger, "")
-}
-
-func replacerDoRequest(w http.ResponseWriter, r *http.Request, logger *customLogger) (jsonBuf []byte, status int, err error) {
+func (replacer Replacer) Replace() (err error) {
+	w, r, logger := replacer.w, replacer.r, replacer.logger
 	var req *http.Request
 	var resp *http.Response
 	if req, err = http.NewRequest(r.Method, upstreamURL+r.URL.String(), nil); logger.Error(err, "new POST") {
@@ -134,22 +137,18 @@ func replacerDoRequest(w http.ResponseWriter, r *http.Request, logger *customLog
 	if resp, err = getHTTPclient().Do(req); logger.Error(err, "getHTTPclient.Do") {
 		return
 	}
-	status = resp.StatusCode
 	defer resp.Body.Close()
+	var jsonBuf []byte
 	if jsonBuf, err = io.ReadAll(resp.Body); logger.Error(err, "resp read") {
 		return
 	}
-	setHeaders(w.Header(), resp.Header)
-	return
-}
-
-func replacerWithAssetsKey(w http.ResponseWriter, r *http.Request, logger *customLogger, assetsKey string) (err error) {
-	jsonBuf, status, err := replacerDoRequest(w, r, logger)
-	if err != nil {
-		return
-	}
-	if status == http.StatusOK {
-		if assetsKey != "" {
+	if resp.StatusCode == http.StatusOK {
+		assetsKey := "assets"
+		switch replacer.typeId {
+		case TypeDelta:
+			assetsKey = "upserted"
+			fallthrough
+		case TypeAlbum:
 			var assetsMap map[string]any
 			if err = json.Unmarshal(jsonBuf, &assetsMap); logger.Error(err, "json unmarshal") {
 				return
@@ -172,7 +171,9 @@ func replacerWithAssetsKey(w http.ResponseWriter, r *http.Request, logger *custo
 			if jsonBuf, err = json.Marshal(assetsMap); logger.Error(err, "json marshal") {
 				return
 			}
-		} else {
+		case TypeBucket:
+			fallthrough
+		case TypeFull:
 			var assets []Asset
 			if err = json.Unmarshal(jsonBuf, &assets); logger.Error(err, "json unmarshal") {
 				return
@@ -185,10 +186,25 @@ func replacerWithAssetsKey(w http.ResponseWriter, r *http.Request, logger *custo
 			if jsonBuf, err = json.Marshal(assets); logger.Error(err, "json marshal") {
 				return
 			}
+		case TypeAssetView:
+			var asset Asset
+			if err = json.Unmarshal(jsonBuf, &asset); logger.Error(err, "json unmarshal") {
+				return
+			}
+			mapLock.RLock()
+			asset.toOriginalAsset()
+			mapLock.RUnlock()
+			if jsonBuf, err = json.Marshal(asset); logger.Error(err, "json marshal") {
+				return
+			}
+		default:
+			err = errors.New("invalid replacer type")
+			return
 		}
-		w.Header().Set("Content-Length", strconv.Itoa(len(jsonBuf)))
 	}
-	w.WriteHeader(status)
+	setHeaders(w.Header(), resp.Header)
+	w.Header().Set("Content-Length", strconv.Itoa(len(jsonBuf)))
+	w.WriteHeader(resp.StatusCode)
 	if _, err = w.Write(jsonBuf); logger.Error(err, "resp write") {
 		return
 	}
