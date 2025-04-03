@@ -137,7 +137,7 @@ func uploadUpstream(w http.ResponseWriter, r *http.Request, file io.ReadSeeker, 
 		return fmt.Errorf("unable to POST: %w", err)
 	}
 	// Send immich response back to client
-	addHeaders(w.Header(), resp.Header)
+	setHeaders(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
 	_, err = io.Copy(w, resp.Body)
 	if err != nil {

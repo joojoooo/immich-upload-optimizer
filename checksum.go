@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -69,6 +71,15 @@ type Asset map[string]any
 
 // toOriginalAsset: Must acquire mapLock.RLock() before calling
 func (asset Asset) toOriginalAsset() {
+	if downloadJpgFromJxl {
+		if n, ok := asset["originalFileName"]; ok {
+			if originalFileName, ok := n.(string); ok {
+				if strings.ToLower(path.Ext(originalFileName)) == ".jxl" {
+					asset["originalFileName"] = originalFileName + ".jpg"
+				}
+			}
+		}
+	}
 	if c, ok := asset["checksum"]; ok {
 		if checksum, ok := c.(string); ok {
 			if original, ok := fakeToOriginalChecksum[checksum]; ok {
@@ -109,29 +120,10 @@ func (replacer deltaChecksumReplacer) Replace(w http.ResponseWriter, r *http.Req
 }
 
 func (replacer fullChecksumReplacer) Replace(w http.ResponseWriter, r *http.Request, logger *customLogger) (err error) {
-	jsonBuf, err := replacerDoRequest(w, r, logger)
-	if err != nil {
-		return
-	}
-	var assets []Asset
-	if err = json.Unmarshal(jsonBuf, &assets); logger.Error(err, "json unmarshal") {
-		return
-	}
-	mapLock.RLock()
-	for _, asset := range assets {
-		asset.toOriginalAsset()
-	}
-	mapLock.RUnlock()
-	if jsonBuf, err = json.Marshal(assets); logger.Error(err, "json marshal") {
-		return
-	}
-	if _, err = w.Write(jsonBuf); logger.Error(err, "resp write") {
-		return
-	}
-	return nil
+	return replacerWithAssetsKey(w, r, logger, "")
 }
 
-func replacerDoRequest(w http.ResponseWriter, r *http.Request, logger *customLogger) (jsonBuf []byte, err error) {
+func replacerDoRequest(w http.ResponseWriter, r *http.Request, logger *customLogger) (jsonBuf []byte, status int, err error) {
 	var req *http.Request
 	var resp *http.Response
 	if req, err = http.NewRequest(r.Method, upstreamURL+r.URL.String(), nil); logger.Error(err, "new POST") {
@@ -142,41 +134,61 @@ func replacerDoRequest(w http.ResponseWriter, r *http.Request, logger *customLog
 	if resp, err = getHTTPclient().Do(req); logger.Error(err, "getHTTPclient.Do") {
 		return
 	}
+	status = resp.StatusCode
 	defer resp.Body.Close()
 	if jsonBuf, err = io.ReadAll(resp.Body); logger.Error(err, "resp read") {
 		return
 	}
-	addHeaders(w.Header(), resp.Header)
+	setHeaders(w.Header(), resp.Header)
 	return
 }
 
 func replacerWithAssetsKey(w http.ResponseWriter, r *http.Request, logger *customLogger, assetsKey string) (err error) {
-	jsonBuf, err := replacerDoRequest(w, r, logger)
+	jsonBuf, status, err := replacerDoRequest(w, r, logger)
 	if err != nil {
 		return
 	}
-	var assetsMap map[string]any
-	if err = json.Unmarshal(jsonBuf, &assetsMap); logger.Error(err, "json unmarshal") {
-		return
-	}
-	for key, value := range assetsMap {
-		if key != assetsKey {
-			continue
-		}
-		if assets, ok := value.([]any); ok {
-			mapLock.RLock()
-			for _, a := range assets {
-				if asset, ok := a.(map[string]any); ok {
-					Asset(asset).toOriginalAsset()
+	if status == http.StatusOK {
+		if assetsKey != "" {
+			var assetsMap map[string]any
+			if err = json.Unmarshal(jsonBuf, &assetsMap); logger.Error(err, "json unmarshal") {
+				return
+			}
+			for key, value := range assetsMap {
+				if key != assetsKey {
+					continue
 				}
+				if assets, ok := value.([]any); ok {
+					mapLock.RLock()
+					for _, a := range assets {
+						if asset, ok := a.(map[string]any); ok {
+							Asset(asset).toOriginalAsset()
+						}
+					}
+					mapLock.RUnlock()
+				}
+				break
+			}
+			if jsonBuf, err = json.Marshal(assetsMap); logger.Error(err, "json marshal") {
+				return
+			}
+		} else {
+			var assets []Asset
+			if err = json.Unmarshal(jsonBuf, &assets); logger.Error(err, "json unmarshal") {
+				return
+			}
+			mapLock.RLock()
+			for _, asset := range assets {
+				asset.toOriginalAsset()
 			}
 			mapLock.RUnlock()
+			if jsonBuf, err = json.Marshal(assets); logger.Error(err, "json marshal") {
+				return
+			}
 		}
-		break
+		w.Header().Set("Content-Length", strconv.Itoa(len(jsonBuf)))
 	}
-	if jsonBuf, err = json.Marshal(assetsMap); logger.Error(err, "json marshal") {
-		return
-	}
+	w.WriteHeader(status)
 	if _, err = w.Write(jsonBuf); logger.Error(err, "resp write") {
 		return
 	}

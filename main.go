@@ -134,6 +134,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 			if err == nil {
 				return
 			}
+			deleteAllHeaders(w.Header())
 		}
 	}
 	r.Host = remote.Host

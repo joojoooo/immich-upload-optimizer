@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"github.com/gorilla/websocket"
 	"net/http"
 	"strings"
@@ -61,7 +62,11 @@ func handleWebSocketConn(cliConn, srvConn *websocket.Conn, logger *customLogger)
 					message = append([]byte("42"), message...)
 				}
 			}
-			if err = cliConn.WriteMessage(msgType, message); logger.Error(err, "cli WriteMessage") {
+			if err = cliConn.WriteMessage(msgType, message); err != nil {
+				if !errors.Is(err, websocket.ErrCloseSent) {
+					logger.Error(err, "cli WriteMessage")
+					break
+				}
 				break
 			}
 		}
@@ -72,7 +77,12 @@ func handleWebSocketConn(cliConn, srvConn *websocket.Conn, logger *customLogger)
 		var msgType int
 		var message []byte
 		for {
-			if msgType, message, err = cliConn.ReadMessage(); logger.Error(err, "cli ReadMessage") {
+			if msgType, message, err = cliConn.ReadMessage(); err != nil {
+				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseNoStatusReceived, websocket.CloseAbnormalClosure) {
+					logger.Error(err, "client disconnect")
+					break
+				}
+				logger.Error(err, "cli ReadMessage")
 				break
 			}
 			if err = srvConn.WriteMessage(msgType, message); logger.Error(err, "srv WriteMessage") {
@@ -86,7 +96,7 @@ func handleWebSocketConn(cliConn, srvConn *websocket.Conn, logger *customLogger)
 func upgradeWebSocketRequest(w http.ResponseWriter, r *http.Request, logger *customLogger) {
 	var err error
 	logger.SetErrPrefix("websocket")
-	logger.Printf("websocket upgrade")
+	logger.Printf("websocket proxy: client connection upgrade")
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			return true

@@ -112,11 +112,16 @@ func getHTTPclient() (client *http.Client) {
 	return
 }
 
-func addHeaders(h1, h2 http.Header) {
+func setHeaders(h1, h2 http.Header) {
+	deleteAllHeaders(h1)
 	for key, values := range h2 {
-		for _, value := range values {
-			h1.Add(key, value)
-		}
+		h1[key] = values
+	}
+}
+
+func deleteAllHeaders(h http.Header) {
+	for key := range h {
+		h.Del(key)
 	}
 }
 
