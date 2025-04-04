@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -116,16 +117,21 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 			logger.Printf("request URL: %s", r.URL.String())
 		}
 	}()
+	if downloadJpgFromJxl {
+		if ok, assetUUID := isOriginalDownloadPath(r); ok {
+			if err = downloadAndConvertImage(w, r, logger, assetUUID[1]); err == nil {
+				return
+			}
+		}
+	}
 	switch {
+	case err != nil:
+		break
 	case isAssetsUpload(r):
 		err = newJob(r, w, logger)
 		logger.SetErrPrefix("upload")
 		logger.Error(err, "")
 		return
-	case downloadJpgFromJxl && isOriginalDownloadPath(r):
-		if err = downloadAndConvertImage(w, r, logger); err == nil {
-			return
-		}
 	default:
 		if replacer := getChecksumReplacer(w, r, logger); replacer != nil {
 			logger.SetErrPrefix(fmt.Sprintf("replacer %d", replacer.typeId))
@@ -133,19 +139,44 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 			if err == nil {
 				return
 			}
-			deleteAllHeaders(w.Header())
 		}
 	}
 	r.Host = remote.Host
 	proxy.ServeHTTP(w, r)
 }
 
-func downloadAndConvertImage(w http.ResponseWriter, r *http.Request, logger *customLogger) (err error) {
-	//TODO: get asset info from immich and only download if JXL extension
+func downloadAndConvertImage(w http.ResponseWriter, r *http.Request, logger *customLogger, assetUUID string) (err error) {
 	logger.SetErrPrefix("download and convert")
-	logger.Printf("converting jxl: %s", r.URL)
 	var req *http.Request
 	var resp *http.Response
+	if req, err = http.NewRequest(r.Method, upstreamURL+"/api/assets/"+assetUUID, nil); logger.Error(err, "new GET") {
+		return
+	}
+	req.Header = r.Header
+	if resp, err = getHTTPclient().Do(req); logger.Error(err, "getHTTPclient.Do") {
+		return
+	}
+	defer resp.Body.Close()
+	var jsonBuf []byte
+	if jsonBuf, err = io.ReadAll(resp.Body); logger.Error(err, "resp read") {
+		return
+	}
+	if resp.StatusCode != http.StatusOK {
+		return errors.New("not HTTP ok")
+	}
+	var asset Asset
+	if err = json.Unmarshal(jsonBuf, &asset); logger.Error(err, "json unmarshal") {
+		return
+	}
+	if n, ok := asset["originalMimeType"]; ok {
+		if originalMimeType, ok := n.(string); ok && originalMimeType != "image/jxl" {
+			return errors.New("not image/jxl")
+		}
+	} else {
+		return errors.New("no originalMimeType")
+	}
+	// Download file and convert
+	logger.Printf("converting jxl: %s", r.URL)
 	var blob *os.File
 	if req, err = http.NewRequest("GET", upstreamURL+r.URL.String(), nil); logger.Error(err, "new GET") {
 		return
@@ -187,5 +218,5 @@ func downloadAndConvertImage(w http.ResponseWriter, r *http.Request, logger *cus
 		}
 		return nil
 	}
-	return errors.New("not jxl")
+	return errors.New("not image/jxl")
 }
