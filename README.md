@@ -7,7 +7,7 @@ Love this project? You can [support it on ko-fi](https://ko-fi.com/svilex)! Ever
 [![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/svilex)
 
 ## 🎯 About
-This project is a fork of [miguelangel-nubla/immich-upload-optimizer](https://github.com/miguelangel-nubla/immich-upload-optimizer). It was created because the original author has different ideas and goals. This way I can add features faster, without having to convince or ask anyone
+This fork was created because the original author [doesn't welcome contributions](https://github.com/miguelangel-nubla/immich-upload-optimizer/pull/21) and [censors comments](https://github.com/miguelangel-nubla/immich-upload-optimizer/issues/15) instead of discussing. Here I can add features without having to convince or ask anyone for permission.
 
 ## ✨ Features
 Features that differentiate this fork from the original project:
@@ -104,9 +104,9 @@ It's recommended to only modify CRF and -preset speed to achieve the quality and
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details
 
 ## Acknowledgements
-- [miguelangel-nubla/immich-upload-optimizer](https://github.com/miguelangel-nubla/immich-upload-optimizer)
 - [JamesCullum/multipart-upload-proxy](https://github.com/JamesCullum/multipart-upload-proxy)
-- [Caesium](https://github.com/Lymphatus/caesium)
+- [libavif](https://github.com/AOMediaCodec/libavif)
 - [libjxl](https://github.com/libjxl/libjxl)
-- [HandBrakeCLI](https://github.com/HandBrake/HandBrake)
+- [Caesium](https://github.com/Lymphatus/caesium)
+- [FFmpeg](https://www.ffmpeg.org/)
 - [Immich](https://github.com/immich-app/immich)
