@@ -3,15 +3,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
 	"mime/multipart"
 	"net/http"
 )
 
+var jobID int
+
 func newJob(r *http.Request, w http.ResponseWriter, logger *customLogger) error {
-	jobID := uuid.New().String()
-	jobLogger := newCustomLogger(logger, fmt.Sprintf("job %s: ", jobID))
+	jobID++
+	jobLogger := newCustomLogger(logger, fmt.Sprintf("job %d: ", jobID))
 
 	formFile, formFileHeader, err := r.FormFile(filterFormKey)
 	if err != nil {
@@ -36,7 +37,7 @@ func newJob(r *http.Request, w http.ResponseWriter, logger *customLogger) error 
 		_ = formFile.Close()
 		_ = r.MultipartForm.RemoveAll()
 		if err = taskProcessor.Run(); err != nil {
-			return fmt.Errorf("failed to process file in job %s: %v", jobID, err.Error())
+			return fmt.Errorf("failed to process file in job %d: %v", jobID, err.Error())
 		}
 		if taskProcessor.OriginalSize <= taskProcessor.ProcessedSize {
 			uploadFile = taskProcessor.OriginalFile

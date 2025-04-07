@@ -23,8 +23,8 @@ Features that differentiate this fork from the original project:
   - The app won't try to upload the same files again because of checksum mismatch, even if you reinstall
 - **AVIF support**
   - A more compatible open image format with similar quality/size to JXL
-- **Automatic JXL->JPG conversion**
-  - Automatically converts JXL to JPG on the fly when downloading images for better compatibility
+- **Automatic JXL/AVIF to JPG conversion**
+  - Automatically converts JXL/AVIF to JPG on download for better compatibility
 - **Easier tasks config**
   - Default passthrough of any unprocessed image/video instead of having to add an empty task and list all extensions to allow
   - No need for a command to remove the original file, it's still needed if processing produces a bigger file size. IUO will delete it
@@ -46,7 +46,8 @@ services:
       - IUO_TASKS_FILE=/etc/immich-upload-optimizer/config/lossy_avif.yaml
       #- IUO_CHECKSUMS_FILE=/IUO/checksums.csv # Uncomment after defining a volume
       - TMPDIR=/tempfs # Writes uploaded files in RAM to improve disk lifespan (Remove if running low on RAM)
-      #- IUO_DOWNLOAD_JPG_FROM_JXL=true # Uncomment to enable JXL conversion
+      #- IUO_DOWNLOAD_JPG_FROM_JXL=true # Uncomment to enable JXL to JPG conversion
+      #- IUO_DOWNLOAD_JPG_FROM_AVIF=true # Uncomment to enable AVIF to JPG conversion
     volumes:
       #- /path/to/your/host/dir:/IUO # Keep the checksums and tasks files between updates by defining a volume
     depends_on:
@@ -74,6 +75,7 @@ All flags are also available as environment variables using the prefix `IUO_` fo
 - `-tasks_file`: Path to the [configuration file](TASKS.md) (default: [`lossy_avif.yaml`](config/lossy_avif.yaml))
 - `-checksums_file`: Path to the checksums file (default: `checksums.csv`)
 - `-download_jpg_from_jxl`: Converts JXL images to JPG on download for compatibility (default: `false`)
+- `-download_jpg_from_avif`: Converts AVIF images to JPG on download for compatibility (default: `false`)
 
 ## 📸 Images
 **[AVIF](https://aomediacodec.github.io/av1-avif/)** is used by default, saving **~80%** space while maintaining the same perceived quality (lossy conversion)

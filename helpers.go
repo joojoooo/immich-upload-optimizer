@@ -41,7 +41,7 @@ func isAssetView(r *http.Request) bool {
 
 func isOriginalDownloadPath(r *http.Request) (bool, []string) {
 	re := regexp.MustCompile(`^/api/assets/([a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12})/original$`)
-	matches := re.FindStringSubmatch(r.URL.Path)
+	matches := re.FindStringSubmatch(r.URL.String())
 	return r.Method == "GET" && len(matches) == 2, matches
 }
 

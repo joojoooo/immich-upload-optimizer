@@ -72,10 +72,11 @@ type Asset map[string]any
 
 // toOriginalAsset: Must acquire mapLock.RLock() before calling
 func (asset Asset) toOriginalAsset() {
-	if downloadJpgFromJxl {
+	if downloadJpgFromJxl || downloadJpgFromAvif {
 		if n, ok := asset["originalFileName"]; ok {
 			if originalFileName, ok := n.(string); ok {
-				if strings.ToLower(path.Ext(originalFileName)) == ".jxl" {
+				extension := strings.ToLower(path.Ext(originalFileName))
+				if (downloadJpgFromJxl && extension == ".jxl") || (downloadJpgFromAvif && extension == ".avif") {
 					asset["originalFileName"] = originalFileName + ".jpg"
 				}
 			}
