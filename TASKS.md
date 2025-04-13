@@ -15,6 +15,7 @@ The Docker container comes with some popular commands preinstalled which can be 
 ```yaml
   - name: jpeg-xl
     command: cjxl --lossless_jpeg=1 "{{.folder}}/{{.name}}.{{.extension}}" "{{.result_folder}}/{{.name}}.jxl"
+    min_filesize: 1048576
     extensions:
       - jpeg
       - jpg
@@ -22,6 +23,7 @@ The Docker container comes with some popular commands preinstalled which can be 
 - `name`: Defines the task name that appears in logs
 - `command`: Defines the processing command
 - `extensions`: Specifies what file extensions this command will process
+- `min_filesize`: Optional (default=0). The minimum file size in bytes the uploaded media should have for the command to execute
 
 #### Placeholder Variables
 - `{{.result_folder}}`: Where the processed file must be placed

@@ -10,10 +10,11 @@ import (
 )
 
 type Task struct {
-	Name            string   `mapstructure:"name"`
-	Extensions      []string `mapstructure:"extensions"`
-	Command         string   `mapstructure:"command"`
-	CommandTemplate *template.Template
+	Name             string   `mapstructure:"name"`
+	Extensions       []string `mapstructure:"extensions"`
+	Command          string   `mapstructure:"command"`
+	MinFilesizeBytes int64    `mapstructure:"min_filesize,omitempty"`
+	CommandTemplate  *template.Template
 }
 
 func (task *Task) Init() (err error) {

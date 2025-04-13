@@ -30,7 +30,7 @@ func newJob(r *http.Request, w http.ResponseWriter, logger *customLogger) error 
 	uploadOriginal := true
 
 	taskProcessor, err := NewTaskProcessorFromMultipart(formFile, formFileHeader)
-	if err == nil {
+	if err == nil && taskProcessor != nil {
 		defer taskProcessor.Close()
 		taskProcessor.SetLogger(jobLogger)
 		// Delete multipart file before running command. Saves RAM (tmpfs)

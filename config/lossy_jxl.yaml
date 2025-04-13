@@ -3,6 +3,7 @@
 tasks:
   - name: lossy-jpg-to-jxl
     command: cjxl --lossless_jpeg=0 -q 75 -e 7 "{{.folder}}/{{.name}}.{{.extension}}" "{{.result_folder}}/{{.name}}.jxl"
+    min_filesize: 1048576
     extensions:
       - jpeg
       - jpg
@@ -10,6 +11,7 @@ tasks:
   # HEIC LivePhotos will lose the video
   - name: heic-to-jxl
     command: ./heic_convert.sh "{{.folder}}" "{{.name}}" "{{.extension}}" "{{.result_folder}}" jxl
+    min_filesize: 1048576
     extensions:
       - heic
       - heif

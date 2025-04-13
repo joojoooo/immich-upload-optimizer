@@ -3,6 +3,7 @@
 tasks:
   - name: lossy-jpg-to-avif
     command: avifenc -c aom -a tune=iq -q 60 -s 6 "{{.folder}}/{{.name}}.{{.extension}}" "{{.result_folder}}/{{.name}}.avif"
+    min_filesize: 1048576
     extensions:
       - jpeg
       - jpg
@@ -10,6 +11,7 @@ tasks:
 # HEIC LivePhotos will lose the video
   - name: heic-to-avif
     command: ./heic_convert.sh "{{.folder}}" "{{.name}}" "{{.extension}}" "{{.result_folder}}" avif
+    min_filesize: 1048576
     extensions:
       - heic
       - heif

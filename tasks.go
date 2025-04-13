@@ -50,6 +50,10 @@ func NewTaskProcessorFromMultipart(file multipart.File, header *multipart.FileHe
 		return nil, fmt.Errorf("no task found for file extension .%s", checkExt)
 	}
 
+	if header.Size < task.MinFilesizeBytes {
+		return nil, fmt.Errorf("file size is smaller than minimum: %d < %d", header.Size, task.MinFilesizeBytes)
+	}
+
 	originalFile, err := os.CreateTemp("", "upload-*"+originalExtension)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create temp file: %w", err)
