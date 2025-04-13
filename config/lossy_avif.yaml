@@ -2,14 +2,14 @@
 # The AVIF image has similar quality and size compared to JXL but wider compatibility: zooming on the immich preview will show the original AVIF image on any browser, it's much easier to view or share the image with others
 tasks:
   - name: lossy-jpg-to-avif
-    command: avifenc -q 70 "{{.folder}}/{{.name}}.{{.extension}}" "{{.result_folder}}/{{.name}}.avif"
+    command: avifenc -c aom -a tune=iq -q 60 -s 6 "{{.folder}}/{{.name}}.{{.extension}}" "{{.result_folder}}/{{.name}}.avif"
     extensions:
       - jpeg
       - jpg
 
 # HEIC LivePhotos will lose the video
   - name: heic-to-avif
-    command: ./convert.sh "{{.folder}}" "{{.name}}" "{{.extension}}" "{{.result_folder}}" avif
+    command: ./heic_convert.sh "{{.folder}}" "{{.name}}" "{{.extension}}" "{{.result_folder}}" avif
     extensions:
       - heic
       - heif

@@ -50,6 +50,7 @@ services:
       #- IUO_DOWNLOAD_JPG_FROM_AVIF=true # Uncomment to enable AVIF to JPG conversion
     volumes:
       #- /path/to/your/host/dir:/IUO # Keep the checksums and tasks files between updates by defining a volume
+    restart: always
     depends_on:
       - immich-server
 

@@ -2,14 +2,14 @@
 # The JXL image can be converted to a high quality (NOT THE ORIGINAL) JPEG. Use IUO_DOWNLOAD_JPG_FROM_JXL env variable to do that automatically on download (must-have feature due to JXL poor compatibility)
 tasks:
   - name: lossy-jpg-to-jxl
-    command: cjxl --lossless_jpeg=0 -q 75 "{{.folder}}/{{.name}}.{{.extension}}" "{{.result_folder}}/{{.name}}.jxl"
+    command: cjxl --lossless_jpeg=0 -q 75 -e 7 "{{.folder}}/{{.name}}.{{.extension}}" "{{.result_folder}}/{{.name}}.jxl"
     extensions:
       - jpeg
       - jpg
 
   # HEIC LivePhotos will lose the video
   - name: heic-to-jxl
-    command: ./convert.sh "{{.folder}}" "{{.name}}" "{{.extension}}" "{{.result_folder}}" jxl
+    command: ./heic_convert.sh "{{.folder}}" "{{.name}}" "{{.extension}}" "{{.result_folder}}" jxl
     extensions:
       - heic
       - heif

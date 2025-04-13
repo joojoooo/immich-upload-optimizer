@@ -22,7 +22,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install --no-install-recommends -qq -y \
     libjxl-tools \
     libavif-bin \
-    libvips-tools \
+    #libvips-tools \
     imagemagick \
     exiftool \
     ffmpeg \
