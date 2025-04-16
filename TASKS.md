@@ -3,7 +3,7 @@ The YAML tasks config file defines a list of commands to execute on the uploaded
 
 ## Commands
 The Docker container comes with some popular commands preinstalled which can be used to create custom tasks:<br>
-**Image:** [`cjxl`](https://github.com/libjxl/libjxl), [`avifenc`](https://github.com/AOMediaCodec/libavif), [`caesiumclt`](https://github.com/Lymphatus/caesium-clt), [`magick`](https://imagemagick.org/script/command-line-tools.php)<br>
+**Image:** [`cjxl`](https://github.com/libjxl/libjxl), [`avifenc`](https://github.com/AOMediaCodec/libavif), [`caesiumclt`](https://github.com/Lymphatus/caesium-clt), [`magick`](https://imagemagick.org/script/command-line-tools.php), [`exiftool`](https://exiftool.org)<br>
 **Video:** [`ffmpeg`](https://www.ffmpeg.org)
 
 ## Usage

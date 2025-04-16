@@ -1,36 +1,94 @@
-FROM debian:sid-slim AS builder
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -qq -y \
-    jq \
-    curl \
-    tar
-
-ARG TARGETPLATFORM
-
-ARG CAESIUM_GITHUB_REPO=Lymphatus/caesium-clt
-RUN CAESIUM_LATEST_RELEASE=$(curl -s https://api.github.com/repos/$CAESIUM_GITHUB_REPO/releases/latest | jq -r '.tag_name') \
-    && if [ "$TARGETPLATFORM" = "linux/amd64" ]; then CAESIUM_ARCH=x86_64-unknown-linux-musl; \
-       elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then CAESIUM_ARCH=aarch64-unknown-linux-musl; \
-       else echo "Platform not supported by ${CAESIUM_GITHUB_REPO}"; exit 126; fi \
-    && CAESIUM_ARCHIVE=caesiumclt-${CAESIUM_LATEST_RELEASE}-${CAESIUM_ARCH} \
-    && curl -sS -L -O --output-dir /tmp/ --create-dirs  "https://github.com/$CAESIUM_GITHUB_REPO/releases/latest/download/${CAESIUM_ARCHIVE}.tar.gz" \
-    && tar xzf "/tmp/${CAESIUM_ARCHIVE}.tar.gz" -C /tmp \
-    && mv "/tmp/${CAESIUM_ARCHIVE}/caesiumclt" /usr/local/bin/caesiumclt
-
 FROM debian:sid-slim
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install --no-install-recommends -qq -y \
-    libjxl-tools \
-    libavif-bin \
-    #libvips-tools \
-    imagemagick \
-    exiftool \
-    ffmpeg \
-    #handbrake-cli \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=builder /usr/local/bin/caesiumclt /usr/local/bin/caesiumclt
+# Build libheif, libaom, libwebp, libjxl, libavif, ImageMagick: https://github.com/dooman87/imagemagick-docker/blob/main/Dockerfile.bookworm
+ARG IM_VERSION=7.1.1-47
+ARG LIB_HEIF_VERSION=1.19.7
+ARG LIB_AOM_VERSION=3.12.1
+ARG LIB_WEBP_VERSION=1.5.0
+ARG LIBJXL_VERSION=0.11.1
+ARG TARGETPLATFORM
+RUN apt-get -y update && apt-get -y upgrade && apt-get install -qq -y \
+    exiftool ffmpeg \
+    # json parse and extract caesium archive
+    jq tar \
+    # build tools
+    git make pkg-config autoconf curl cmake clang libomp-dev ca-certificates automake \
+    # libaom
+    yasm \
+    # libheif
+    libde265-0 libde265-dev libjpeg62-turbo libjpeg62-turbo-dev x265 libx265-dev libtool \
+    # libwebp
+    libsdl1.2-dev libgif-dev \
+    # libjxl
+    libbrotli-dev \
+    # libavif \
+    libyuv-dev libjpeg-dev\
+    # IM
+    libpng16-16 libpng-dev libjpeg62-turbo libjpeg62-turbo-dev libgomp1 ghostscript libxml2-dev libxml2-utils libtiff-dev libfontconfig1-dev libfreetype6-dev fonts-dejavu liblcms2-2 liblcms2-dev libtcmalloc-minimal4 \
+    # Install manually to prevent deleting with -dev packages
+    libxext6 libbrotli1 && \
+    export CC=clang CXX=clang++ && \
+    # Building libwebp
+    git clone -b v${LIB_WEBP_VERSION} --depth 1 https://chromium.googlesource.com/webm/libwebp && \
+    cd libwebp && \
+    mkdir build && cd build && cmake -DBUILD_SHARED_LIBS=ON ../ && make && make install && \
+    ldconfig /usr/local/lib && \
+    cd ../../ && rm -rf libwebp && \
+    # Building libjxl
+    git clone -b v${LIBJXL_VERSION} https://github.com/libjxl/libjxl.git --depth 1 --recursive --shallow-submodules && \
+    cd libjxl && \
+    mkdir build && \
+    cd build && \
+    cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DJPEGXL_FORCE_SYSTEM_BROTLI=ON -DJPEGXL_FORCE_SYSTEM_LCMS2=ON .. && \
+    cmake --build . -- -j$(nproc) && \
+    cmake --install . && \
+    cd ../../ && \
+    rm -rf libjxl && \
+    ldconfig /usr/local/lib && \
+    # Building libaom
+    git clone -b v${LIB_AOM_VERSION} --depth 1 https://aomedia.googlesource.com/aom && \
+    mkdir build_aom && \
+    cd build_aom && \
+    cmake ../aom/ -DENABLE_TESTS=0 -DBUILD_SHARED_LIBS=1 && make && make install && \
+    ldconfig /usr/local/lib && \
+    cd .. && \
+    rm -rf aom && \
+    rm -rf build_aom && \
+    # Building libheif
+    git clone -b v${LIB_HEIF_VERSION} --depth 1 https://github.com/strukturag/libheif.git && \
+    cd libheif/ && \
+    mkdir build && cd build && cmake --preset=release .. && make && make install && cd ../../ && \
+    ldconfig /usr/local/lib && \
+    rm -rf libheif && \
+    # Building ImageMagick
+    git clone -b ${IM_VERSION} --depth 1 https://github.com/ImageMagick/ImageMagick.git && \
+    cd ImageMagick && \
+    LIBS="-lsharpyuv" ./configure --without-magick-plus-plus --disable-docs --disable-static --with-tiff --with-jxl --with-tcmalloc && \
+    make && make install && \
+    ldconfig /usr/local/lib && \
+    cd .. && \
+    rm -rf /ImageMagick && \
+    # Building libavif \
+    # Build latest commit cause there is no release yet for the orientation fix: https://github.com/AOMediaCodec/libavif/issues/2727
+    git clone https://github.com/AOMediaCodec/libavif.git && \
+    cmake -S libavif -B libavif/build -DAVIF_CODEC_AOM=SYSTEM -DAVIF_BUILD_APPS=ON && \
+    cmake --build libavif/build --config Release --parallel && \
+    cmake --install libavif/build && \
+    ldconfig /usr/local/lib && \
+    rm -rf /libavif && \
+    # Download Caesium \
+    CAESIUM_LATEST_RELEASE=$(curl -s https://api.github.com/repos/Lymphatus/caesium-clt/releases/latest | jq -r '.tag_name') && \
+    if [ "$TARGETPLATFORM" = "linux/amd64" ]; then CAESIUM_ARCH=x86_64-unknown-linux-musl; \
+    elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then CAESIUM_ARCH=aarch64-unknown-linux-musl; \
+    else echo "Platform not supported by Lymphatus/caesium-clt"; exit 126; fi && \
+    CAESIUM_ARCHIVE=caesiumclt-${CAESIUM_LATEST_RELEASE}-${CAESIUM_ARCH} && \
+    curl -sS -L -O --output-dir /tmp/ --create-dirs  "https://github.com/Lymphatus/caesium-clt/releases/latest/download/${CAESIUM_ARCHIVE}.tar.gz" && \
+    tar xzf "/tmp/${CAESIUM_ARCHIVE}.tar.gz" -C /tmp && \
+    mv "/tmp/${CAESIUM_ARCHIVE}/caesiumclt" /usr/local/bin/caesiumclt && \
+    rm -fr "/tmp/${CAESIUM_ARCHIVE}.tar.gz" && rm -fr "/tmp/${CAESIUM_ARCHIVE}" && \
+    apt-get remove --autoremove --purge -y jq make cmake clang curl yasm git autoconf automake pkg-config libde265-dev libx265-dev libxml2-dev libtiff-dev libfontconfig1-dev libfreetype6-dev liblcms2-dev libsdl1.2-dev libbrotli-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY config /etc/immich-upload-optimizer/config
 ENV IUO_TASKS_FILE=/etc/immich-upload-optimizer/config/lossy_avif.yaml
