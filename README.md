@@ -1,4 +1,4 @@
-# Immich Upload Optimizer
+# Immich Upload Optimizer [![goreleaser](https://github.com/joojoooo/immich-upload-optimizer/actions/workflows/release.yaml/badge.svg)](https://github.com/joojoooo/immich-upload-optimizer/actions/workflows/release.yaml)
 Immich Upload Optimizer (IOU) is a proxy designed to be placed in front of the [Immich](https://immich.app/) server. It intercepts file uploads and uses external CLI programs (by default: [AVIF](https://aomediacodec.github.io/av1-avif/), [JPEG-XL](https://jpegxl.info/), [FFmpeg](https://www.ffmpeg.org/)) to optimize, resize, or compress images and videos to save storage space
 
 ## ☕  Support the project
@@ -50,7 +50,7 @@ services:
       #- IUO_DOWNLOAD_JPG_FROM_AVIF=true # Uncomment to enable AVIF to JPG conversion
     volumes:
       #- /path/to/your/host/dir:/IUO # Keep the checksums and tasks files between updates by defining a volume
-    restart: always
+    restart: unless-stopped
     depends_on:
       - immich-server
 
