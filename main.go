@@ -226,12 +226,11 @@ func downloadAndConvertImage(w http.ResponseWriter, r *http.Request, logger *cus
 		if output, err = exec.Command("djxl", blob.Name(), blob.Name()+".jpg").CombinedOutput(); logger.Error(err, "djxl") {
 			return
 		}
-		return nil
 	case AVIF:
 		if !bytes.Equal(signature[4:], []byte("ftypavif")) {
 			return errors.New("bad avif signature")
 		}
-		if output, err = exec.Command("avifdec", blob.Name(), blob.Name()+".jpg").CombinedOutput(); logger.Error(err, "avifdec") {
+		if output, err = exec.Command("avifdec", "-q", "95", blob.Name(), blob.Name()+".jpg").CombinedOutput(); logger.Error(err, "avifdec") {
 			return
 		}
 	default:
@@ -247,5 +246,4 @@ func downloadAndConvertImage(w http.ResponseWriter, r *http.Request, logger *cus
 		return
 	}
 	return nil
-
 }
