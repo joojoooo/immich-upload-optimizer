@@ -1,7 +1,10 @@
 package main
 
 import (
+	"compress/gzip"
 	"fmt"
+	"github.com/andybalholm/brotli"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -141,4 +144,41 @@ func webSocketSafeHeader(header http.Header) http.Header {
 		header.Del(v)
 	}
 	return header
+}
+
+type nopWriteCloser struct {
+	io.Writer
+}
+
+func (nwc nopWriteCloser) Close() error {
+	return nil
+}
+
+func NopWriteCloser(w io.Writer) io.WriteCloser {
+	return nopWriteCloser{w}
+}
+
+func getBodyWriterReaderHTTP(w *http.ResponseWriter, resp *http.Response) (bodyReader io.ReadCloser, bodyWriter io.WriteCloser) {
+	var err error
+	switch resp.Header.Get("Content-Encoding") {
+	case "gzip":
+		if bodyReader, err = gzip.NewReader(resp.Body); err != nil {
+			break
+		}
+		if w != nil {
+			bodyWriter = gzip.NewWriter(*w)
+		}
+		return
+	case "br":
+		bodyReader = io.NopCloser(brotli.NewReader(resp.Body))
+		if w != nil {
+			bodyWriter = brotli.NewWriter(*w)
+		}
+		return
+	}
+	bodyReader = io.NopCloser(resp.Body)
+	if w != nil {
+		bodyWriter = NopWriteCloser(*w)
+	}
+	return
 }

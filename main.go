@@ -166,8 +166,10 @@ func downloadAndConvertImage(w http.ResponseWriter, r *http.Request, logger *cus
 		return
 	}
 	defer resp.Body.Close()
+	bodyReader, _ := getBodyWriterReaderHTTP(nil, resp)
+	defer bodyReader.Close()
 	var jsonBuf []byte
-	if jsonBuf, err = io.ReadAll(resp.Body); logger.Error(err, "resp read") {
+	if jsonBuf, err = io.ReadAll(bodyReader); logger.Error(err, "resp read") {
 		return
 	}
 	if resp.StatusCode != http.StatusOK {

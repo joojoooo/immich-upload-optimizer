@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -99,12 +100,19 @@ func getChecksumReplacer(w http.ResponseWriter, r *http.Request, logger *customL
 	if isFullSync(r) {
 		return &Replacer{w, r, logger, TypeFull}
 	}
+	/*
+		Since immich server v1.133.1
+		- Albums don't come with assets on the web (?withoutAssets=true by default) but still do for the app
+		- Buckets don't hold assets anymore
+	*/
 	if isAlbum(r) {
 		return &Replacer{w, r, logger, TypeAlbum}
 	}
-	if isBucket(r) {
-		return &Replacer{w, r, logger, TypeBucket}
-	}
+	/*
+		if isBucket(r) {
+			return &Replacer{w, r, logger, TypeBucket}
+		}
+	*/
 	if isAssetView(r) {
 		return &Replacer{w, r, logger, TypeAssetView}
 	}
@@ -139,8 +147,11 @@ func (replacer Replacer) Replace() (err error) {
 		return
 	}
 	defer resp.Body.Close()
+	bodyReader, bodyWriter := getBodyWriterReaderHTTP(&w, resp)
+	defer bodyReader.Close()
+	defer bodyWriter.Close()
 	var jsonBuf []byte
-	if jsonBuf, err = io.ReadAll(resp.Body); logger.Error(err, "resp read") {
+	if jsonBuf, err = io.ReadAll(bodyReader); logger.Error(err, "resp read") {
 		return
 	}
 	if resp.StatusCode == http.StatusOK {
@@ -204,9 +215,11 @@ func (replacer Replacer) Replace() (err error) {
 		}
 	}
 	setHeaders(w.Header(), resp.Header)
-	w.Header().Set("Content-Length", strconv.Itoa(len(jsonBuf)))
+	if !slices.Contains([]string{"gzip", "br"}, resp.Header.Get("Content-Encoding")) {
+		w.Header().Set("Content-Length", strconv.Itoa(len(jsonBuf)))
+	}
 	w.WriteHeader(resp.StatusCode)
-	if _, err = w.Write(jsonBuf); logger.Error(err, "resp write") {
+	if _, err = bodyWriter.Write(jsonBuf); logger.Error(err, "resp write") {
 		return
 	}
 	return
