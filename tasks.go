@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -135,6 +136,7 @@ func (tp *TaskProcessor) Run() error {
 	extension := path.Ext(basename)
 	values := map[string]string{
 		"result_folder": tp.tempWorkDir,
+		"original_name": base64.StdEncoding.EncodeToString([]byte(tp.OriginalFilename)),
 		"folder":        path.Dir(tp.tempOriginalFilePath),
 		"name":          strings.TrimSuffix(basename, extension),
 		"extension":     strings.TrimPrefix(extension, "."),
