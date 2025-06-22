@@ -28,8 +28,9 @@ The Docker container comes with some popular commands preinstalled which can be 
 #### Placeholder Variables
 - `{{.result_folder}}`: Where the processed file must be placed
 - `{{.folder}}`: Directory the original file is in
-- `{{.name}}`: Original file name without extension
+- `{{.name}}`: Generated temporary file name without extension
 - `{{.extension}}`: Original file extension
+- `{{.original_name}}`: Original file name without extension encoded in base64
 
 ## Process Overview
 When a file is uploaded, IUO:
