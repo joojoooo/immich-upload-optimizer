@@ -19,7 +19,7 @@ import (
 )
 
 // goreleaser auto updated vars
-var version = "dev"
+var version = "v0.8.1"
 var commit = "none"
 var date = "unknown"
 
@@ -36,6 +36,8 @@ var configFile string
 var checksumsFile string
 var downloadJpgFromJxl bool
 var downloadJpgFromAvif bool
+var tagIDsStr string
+var tagIDs []string
 
 var config *Config
 
@@ -47,6 +49,7 @@ func init() {
 	viper.BindEnv("tasks_file")
 	viper.BindEnv("download_jpg_from_jxl")
 	viper.BindEnv("download_jpg_from_avif")
+	viper.BindEnv("tag_ids")
 
 	viper.SetDefault("upstream", "")
 	viper.SetDefault("listen", ":2284")
@@ -54,6 +57,7 @@ func init() {
 	viper.SetDefault("checksums_file", "checksums.csv")
 	viper.SetDefault("download_jpg_from_jxl", false)
 	viper.SetDefault("download_jpg_from_avif", false)
+	viper.SetDefault("tag_ids", "")
 
 	flag.BoolVar(&showVersion, "version", false, "Show the current version")
 	flag.StringVar(&upstreamURL, "upstream", viper.GetString("upstream"), "Upstream URL. Example: http://immich-server:2283")
@@ -62,6 +66,7 @@ func init() {
 	flag.StringVar(&checksumsFile, "checksums_file", viper.GetString("checksums_file"), "Path to the checksums file")
 	flag.BoolVar(&downloadJpgFromJxl, "download_jpg_from_jxl", viper.GetBool("download_jpg_from_jxl"), "Converts JXL images to JPG on download for wider compatibility")
 	flag.BoolVar(&downloadJpgFromAvif, "download_jpg_from_avif", viper.GetBool("download_jpg_from_avif"), "Converts AVIF images to JPG on download for wider compatibility")
+	flag.StringVar(&tagIDsStr, "tag-ids", viper.GetString("tag_ids"), "Comma-separated list of tag IDs")
 	flag.Parse()
 
 	if showVersion {
@@ -96,6 +101,12 @@ func main() {
 	} else {
 		log.Printf("no tmp directory set, uploaded files will be saved on disk multiple times, this can shorten your disk lifespan !")
 	}
+	// Process tags
+	var err error
+	tagIDs, err = getTagIDs()
+	if err != nil {
+		baseLogger.Fatalf("Error parsing tag IDs: %s with %v", tagIDsStr, err)
+	}
 	// Proxy
 	proxy = httputil.NewSingleHostReverseProxy(remote)
 	if DevMITMproxy {
@@ -106,6 +117,23 @@ func main() {
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Error starting immich-upload-optimizer: %v", err)
 	}
+}
+
+// getTagIDs parses tagIDsStr into a list of tag IDs
+func getTagIDs() ([]string, error) {
+	if tagIDsStr == "" {
+		return []string{}, nil
+	}
+	ids := strings.Split(tagIDsStr, ",")
+	// deals with empty sections e.g "id1,,,id2"
+	var filteredIDs []string
+	for _, id := range ids {
+		trimmedID := strings.TrimSpace(id)
+		if trimmedID != "" {
+			filteredIDs = append(filteredIDs, trimmedID)
+		}
+	}
+	return filteredIDs, nil
 }
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {

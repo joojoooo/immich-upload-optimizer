@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -126,7 +128,6 @@ func uploadUpstream(w http.ResponseWriter, r *http.Request, file io.ReadSeeker, 
 	req.Header.Set("Content-Type", multipartWriter.FormDataContentType())
 	// Send the request to the upstream server
 	resp, err := getHTTPclient().Do(req)
-	defer resp.Body.Close()
 	if err != nil {
 		select {
 		case chErr := <-errChan:
@@ -137,12 +138,77 @@ func uploadUpstream(w http.ResponseWriter, r *http.Request, file io.ReadSeeker, 
 		}
 		return fmt.Errorf("unable to POST: %w", err)
 	}
+
+	defer resp.Body.Close()
+	// Extract asset ID from response
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("error reading response body: %w", err)
+	}
+	var responseData struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(bodyBytes, &responseData); err != nil {
+		return fmt.Errorf("failed to parse upstream response JSON: %w", err)
+	}
+	if responseData.ID == "" {
+		return fmt.Errorf("no asset ID found in upstream response")
+	}
+	// Tag the asset
+	if len(tagIDs) > 0 {
+		if err := tagAsset(ctx, upstreamURL, responseData.ID, tagIDs, r); err != nil {
+			return err
+		}
+	}
 	// Send immich response back to client
 	setHeaders(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
-	_, err = io.Copy(w, resp.Body)
+	_, err = io.Copy(w, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return fmt.Errorf("unable to forward response to client: %v", err)
+	}
+
+	return nil
+}
+
+// tagAsset makes an API call to tag an asset with the specified tag IDs.
+func tagAsset(ctx context.Context, upstreamURL string, assetID string, tagIDs []string, originalReq *http.Request) error {
+	// Prepare JSON body for tagging
+	tagBody := map[string][]string{"assetIds": {assetID}, "tagIds": tagIDs}
+	tagBodyBytes, err := json.Marshal(tagBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tag JSON body: %w", err)
+	}
+
+	// Create tag request
+	tagURL := fmt.Sprintf("%s/api/tags/assets", upstreamURL)
+	tagReq, err := http.NewRequestWithContext(ctx, "PUT", tagURL, bytes.NewReader(tagBodyBytes))
+	if err != nil {
+		return fmt.Errorf("failed to create tag request: %w", err)
+	}
+
+	// Set headers for authentication and content type
+	tagReq.Header.Set("Content-Type", "application/json")
+	// Copy cookies from original request to reuse session
+	for _, cookie := range originalReq.Cookies() {
+		tagReq.AddCookie(cookie)
+	}
+	// Copy other headers that might be relevant for authentication
+	if apiKey := originalReq.Header.Get("x-api-key"); apiKey != "" {
+		tagReq.Header.Set("x-api-key", apiKey)
+	}
+
+	// Send tag request
+	tagResp, err := getHTTPclient().Do(tagReq)
+	if err != nil {
+		return fmt.Errorf("failed to add tag to asset: %w", err)
+	}
+	defer tagResp.Body.Close()
+
+	// Check response status
+	if tagResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(tagResp.Body)
+		return fmt.Errorf("tag request failed with status %s: %s", tagResp.Status, string(body))
 	}
 
 	return nil
