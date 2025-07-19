@@ -19,7 +19,7 @@ import (
 )
 
 // goreleaser auto updated vars
-var version = "v0.8.1"
+var version = "dev"
 var commit = "none"
 var date = "unknown"
 
@@ -66,12 +66,19 @@ func init() {
 	flag.StringVar(&checksumsFile, "checksums_file", viper.GetString("checksums_file"), "Path to the checksums file")
 	flag.BoolVar(&downloadJpgFromJxl, "download_jpg_from_jxl", viper.GetBool("download_jpg_from_jxl"), "Converts JXL images to JPG on download for wider compatibility")
 	flag.BoolVar(&downloadJpgFromAvif, "download_jpg_from_avif", viper.GetBool("download_jpg_from_avif"), "Converts AVIF images to JPG on download for wider compatibility")
-	flag.StringVar(&tagIDsStr, "tag-ids", viper.GetString("tag_ids"), "Comma-separated list of tag IDs")
+	flag.StringVar(&tagIDsStr, "tag_ids", viper.GetString("tag_ids"), "Comma-separated list of tag IDs")
 	flag.Parse()
 
 	if showVersion {
 		fmt.Println(printVersion())
 		os.Exit(0)
+	}
+
+	// Process tags
+	var err error
+	tagIDs, err = getTagIDs()
+	if err != nil {
+		baseLogger.Fatalf("Error parsing tag IDs: %s with %v", tagIDsStr, err)
 	}
 
 	validateInput()
@@ -101,12 +108,6 @@ func main() {
 	} else {
 		log.Printf("no tmp directory set, uploaded files will be saved on disk multiple times, this can shorten your disk lifespan !")
 	}
-	// Process tags
-	var err error
-	tagIDs, err = getTagIDs()
-	if err != nil {
-		baseLogger.Fatalf("Error parsing tag IDs: %s with %v", tagIDsStr, err)
-	}
 	// Proxy
 	proxy = httputil.NewSingleHostReverseProxy(remote)
 	if DevMITMproxy {
@@ -126,14 +127,12 @@ func getTagIDs() ([]string, error) {
 	}
 	ids := strings.Split(tagIDsStr, ",")
 	// deals with empty sections e.g "id1,,,id2"
-	var filteredIDs []string
-	for _, id := range ids {
-		trimmedID := strings.TrimSpace(id)
-		if trimmedID != "" {
-			filteredIDs = append(filteredIDs, trimmedID)
+	for i, id := range ids {
+		if strings.ContainsAny(id, " \t\n\r") || id == "" {
+			return nil, fmt.Errorf("whitespaces or empty values at tag_ids at position %d", i+1)
 		}
 	}
-	return filteredIDs, nil
+	return ids, nil
 }
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {

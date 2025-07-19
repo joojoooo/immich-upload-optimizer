@@ -80,7 +80,7 @@ All flags are also available as environment variables using the prefix `IUO_` fo
 - `-checksums_file`: Path to the checksums file (default: `checksums.csv`)
 - `-download_jpg_from_jxl`: Converts JXL images to JPG on download for compatibility (default: `false`)
 - `-download_jpg_from_avif`: Converts AVIF images to JPG on download for compatibility (default: `false`)
-- `-tag-ids`: Comma-separated list of tag IDs to add to every asset (default: `""`)
+- `-tag_ids`: Comma-separated list of tag IDs to add to every asset (default: `""`)
 
 ## 📸 Images
 **[AVIF](https://aomediacodec.github.io/av1-avif/)** is used by default, saving **~80%** space while maintaining the same perceived quality (lossy conversion)

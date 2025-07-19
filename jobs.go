@@ -138,8 +138,8 @@ func uploadUpstream(w http.ResponseWriter, r *http.Request, file io.ReadSeeker, 
 		}
 		return fmt.Errorf("unable to POST: %w", err)
 	}
-
 	defer resp.Body.Close()
+
 	// Extract asset ID from response
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -156,7 +156,7 @@ func uploadUpstream(w http.ResponseWriter, r *http.Request, file io.ReadSeeker, 
 	}
 	// Tag the asset
 	if len(tagIDs) > 0 {
-		if err := tagAsset(ctx, upstreamURL, responseData.ID, tagIDs, r); err != nil {
+		if err := tagAsset(upstreamURL, responseData.ID, tagIDs, r); err != nil {
 			return err
 		}
 	}
@@ -172,7 +172,7 @@ func uploadUpstream(w http.ResponseWriter, r *http.Request, file io.ReadSeeker, 
 }
 
 // tagAsset makes an API call to tag an asset with the specified tag IDs.
-func tagAsset(ctx context.Context, upstreamURL string, assetID string, tagIDs []string, originalReq *http.Request) error {
+func tagAsset(upstreamURL string, assetID string, tagIDs []string, originalReq *http.Request) error {
 	// Prepare JSON body for tagging
 	tagBody := map[string][]string{"assetIds": {assetID}, "tagIds": tagIDs}
 	tagBodyBytes, err := json.Marshal(tagBody)
@@ -182,22 +182,15 @@ func tagAsset(ctx context.Context, upstreamURL string, assetID string, tagIDs []
 
 	// Create tag request
 	tagURL := fmt.Sprintf("%s/api/tags/assets", upstreamURL)
-	tagReq, err := http.NewRequestWithContext(ctx, "PUT", tagURL, bytes.NewReader(tagBodyBytes))
+	tagReq, err := http.NewRequest("PUT", tagURL, bytes.NewReader(tagBodyBytes))
 	if err != nil {
 		return fmt.Errorf("failed to create tag request: %w", err)
 	}
 
 	// Set headers for authentication and content type
+	setHeaders(tagReq.Header, originalReq.Header)
+	// Not present before, without immich returns 400
 	tagReq.Header.Set("Content-Type", "application/json")
-	// Copy cookies from original request to reuse session
-	for _, cookie := range originalReq.Cookies() {
-		tagReq.AddCookie(cookie)
-	}
-	// Copy other headers that might be relevant for authentication
-	if apiKey := originalReq.Header.Get("x-api-key"); apiKey != "" {
-		tagReq.Header.Set("x-api-key", apiKey)
-	}
-
 	// Send tag request
 	tagResp, err := getHTTPclient().Do(tagReq)
 	if err != nil {
