@@ -2,7 +2,7 @@
 # The AVIF image has similar quality and size compared to JXL but wider compatibility: zooming on the immich preview will show the original AVIF image on any browser, it's much easier to view or share the image with others
 tasks:
   - name: lossy-jpg-to-avif
-    command: avifenc -c aom -a tune=iq -q 60 -s 6 "{{.folder}}/{{.name}}.{{.extension}}" "{{.result_folder}}/{{.name}}.avif"
+    command: avifenc -c aom -a tune=iq -q 60 -s 6 "{{.folder}}/{{.name}}.{{.extension}}" "{{.result_folder}}/{{.name}}.avif" && exiftool -tagsFromFile "{{.folder}}/{{.name}}.{{.extension}}" -all:all -overwrite_original "{{.result_folder}}/{{.name}}.avif"
     min_filesize: 1048576
     extensions:
       - jpeg
@@ -10,13 +10,13 @@ tasks:
 
   # HEIC LivePhotos will lose the video
   - name: heic-to-avif
-    command: magick -quality 75 "{{.folder}}/{{.name}}.{{.extension}}" "{{.result_folder}}/{{.name}}.avif"
+    command: magick -quality 75 "{{.folder}}/{{.name}}.{{.extension}}" "{{.result_folder}}/{{.name}}.avif" && exiftool -tagsFromFile "{{.folder}}/{{.name}}.{{.extension}}" -all:all -overwrite_original "{{.result_folder}}/{{.name}}.avif"
     min_filesize: 1048576
     extensions:
       - heic
       - heif
 
   - name: ffmpeg
-    command: ffmpeg -noautorotate -i "{{.folder}}/{{.name}}.{{.extension}}" -c:v libx265 -crf 23 -filter:v fps=60 -c:a copy -preset fast -map_metadata 0 -movflags use_metadata_tags -tag:v hvc1 "{{.result_folder}}/{{.name}}.{{.extension}}"
+    command: ffmpeg -noautorotate -i "{{.folder}}/{{.name}}.{{.extension}}" -c:v libx265 -crf 23 -filter:v fps=60 -c:a copy -preset fast -map_metadata 0 -movflags use_metadata_tags -tag:v hvc1 "{{.result_folder}}/{{.name}}.{{.extension}}" && exiftool -tagsFromFile "{{.folder}}/{{.name}}.{{.extension}}" -all:all -overwrite_original "{{.result_folder}}/{{.name}}.{{.extension}}"
     extensions:
       - mp4
