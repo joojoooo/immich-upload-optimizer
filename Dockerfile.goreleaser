@@ -23,7 +23,9 @@ RUN apt-get -y update && apt-get install -qq -y --no-install-recommends \
     libjpeg62-turbo-dev \
     # libavif
     libaom-dev \
-    libyuv-dev
+    libyuv-dev \
+    # exiftool to keep exif data
+    libimage-exiftool-perl
 
 # Build libjxl
 #RUN git clone -b v${LIBJXL_VERSION} https://github.com/libjxl/libjxl.git --depth 1 --recursive --shallow-submodules && \
