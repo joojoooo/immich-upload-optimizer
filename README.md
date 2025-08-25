@@ -58,6 +58,8 @@ services:
   # ...existing configuration...
   # remove the ports section if you only want to access immich through the proxy.
 ```
+Make sure `checksums.csv` is stored outside container outherwise it will be deleted with container and you will get duplicate photos, define volume and uncomment IUO_CHECKSUMS_FILE
+
 Run the appropriate commands at the `docker-compose.yml` location to stop, update and start the container:
 ```sh
 # Stop container and edit docker-compose.yml
