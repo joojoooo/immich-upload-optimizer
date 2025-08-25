@@ -1,4 +1,4 @@
-module github.com/joojoooo/immich-upload-optimizer
+module github.com/plazmus/immich-upload-optimizer
 
 go 1.23.4
 
