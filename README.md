@@ -2,9 +2,11 @@
 Immich Upload Optimizer (IOU) is a proxy designed to be placed in front of the [Immich](https://immich.app/) server. It intercepts file uploads and uses external CLI programs (by default: [AVIF](https://aomediacodec.github.io/av1-avif/), [JPEG-XL](https://jpegxl.info/), [FFmpeg](https://www.ffmpeg.org/)) to optimize, resize, or compress images and videos to save storage space
 
 ## ☕  Support the project
-Love this project? You can [support it on ko-fi](https://ko-fi.com/svilex)! Every contribution helps keep the project alive!
+Love this project? You can [support it on Ko-fi](https://ko-fi.com/joojooo) Every contribution makes a difference!
 
-[![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/svilex)
+[![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/joojooo)
+
+A special thanks to @kevinfiol and @timaschew . Your donations are what keep this project alive 💖
 
 ## 🎯 About
 This fork was created because the original author [doesn't welcome contributions](https://github.com/miguelangel-nubla/immich-upload-optimizer/pull/21) and [censors comments](https://github.com/miguelangel-nubla/immich-upload-optimizer/issues/15) instead of discussing. Here I can add features without having to convince or ask anyone for permission.
