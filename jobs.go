@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 )
 
 var jobID int
@@ -69,7 +68,6 @@ func newJob(r *http.Request, w http.ResponseWriter, logger *customLogger) error 
 			return fmt.Errorf("new sha1: %w", err)
 		}
 		addChecksums(newHash, originalHash)
-		ensureChecksumMapped(newHash, originalHash)
 		jobLogger.Printf("uploaded: \"%s\" (%s) <- (%s) \"%s\"", taskProcessor.ProcessedFilename, humanReadableSize(taskProcessor.ProcessedSize), humanReadableSize(taskProcessor.OriginalSize), taskProcessor.OriginalFilename)
 	}
 
@@ -238,18 +236,5 @@ func rewriteUploadAsset(node any) bool {
 		return changed
 	default:
 		return false
-	}
-}
-
-// ensureChecksumMapped waits until the fake checksum is visible in the in-memory map.
-func ensureChecksumMapped(fake, original string) {
-	for i := 0; i < 3; i++ {
-		mapLock.RLock()
-		_, ok := fakeToOriginalChecksum[fake]
-		mapLock.RUnlock()
-		if ok {
-			return
-		}
-		time.Sleep(10 * time.Millisecond)
 	}
 }

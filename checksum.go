@@ -56,11 +56,13 @@ func initChecksums() {
 }
 
 func addChecksums(fake, original string) {
-	mapLock.Lock()
-	fakeToOriginalChecksum[fake] = original
-	originalToFakeChecksum[original] = fake
-	mapLock.Unlock()
-	_ = appendToCSV(fake, original)
+	go func() {
+		mapLock.Lock()
+		fakeToOriginalChecksum[fake] = original
+		originalToFakeChecksum[original] = fake
+		mapLock.Unlock()
+		_ = appendToCSV(fake, original)
+	}()
 }
 
 func appendToCSV(key, value string) error {
