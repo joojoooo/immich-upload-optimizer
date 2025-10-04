@@ -131,10 +131,26 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case err != nil:
 		break
+	case isBulkUploadCheck(r):
+		logger.SetErrPrefix("bulk upload check")
+		var modified int
+		if modified, err = rewriteBulkUploadCheckRequest(r); logger.Error(err, "rewrite request") {
+			http.Error(w, "failed to process request", http.StatusInternalServerError)
+			return
+		}
+		if modified > 0 {
+			logger.Printf("rewrote %d checksum(s) for bulk upload check", modified)
+		}
 	case isAssetsUpload(r):
 		err = newJob(r, w, logger)
 		logger.SetErrPrefix("upload")
 		logger.Error(err, "")
+		return
+	case isSyncStream(r):
+		logger.SetErrPrefix("sync stream")
+		if err = proxySyncStream(w, r, logger); logger.Error(err, "proxy stream") {
+			return
+		}
 		return
 	default:
 		if replacer := getChecksumReplacer(w, r, logger); replacer != nil {

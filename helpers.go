@@ -20,12 +20,20 @@ func isAssetsUpload(r *http.Request) bool {
 	return r.Method == "POST" && r.URL.Path == "/api/assets" && strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data")
 }
 
+func isBulkUploadCheck(r *http.Request) bool {
+	return r.Method == "POST" && r.URL.Path == "/api/assets/bulk-upload-check"
+}
+
 func isFullSync(r *http.Request) bool {
 	return r.Method == "POST" && r.URL.Path == "/api/sync/full-sync"
 }
 
 func isDeltaSync(r *http.Request) bool {
 	return r.Method == "POST" && r.URL.Path == "/api/sync/delta-sync"
+}
+
+func isSyncStream(r *http.Request) bool {
+	return r.Method == "POST" && r.URL.Path == "/api/sync/stream"
 }
 
 func isAlbum(r *http.Request) bool {

@@ -2,10 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strconv"
+	"strings"
+	"time"
 )
 
 var jobID int
@@ -53,7 +57,7 @@ func newJob(r *http.Request, w http.ResponseWriter, logger *customLogger) error 
 		}
 	}
 	// Upload the original file or processed one if a task was found
-	err = uploadUpstream(w, r, uploadFile, uploadFilename)
+	err = uploadUpstream(w, r, uploadFile, uploadFilename, jobLogger)
 	if err != nil {
 		jobLogger.Printf("upload upstream error: %s", err.Error())
 		http.Error(w, "failed to process file, view logs for more info", http.StatusInternalServerError)
@@ -65,13 +69,14 @@ func newJob(r *http.Request, w http.ResponseWriter, logger *customLogger) error 
 			return fmt.Errorf("new sha1: %w", err)
 		}
 		addChecksums(newHash, originalHash)
+		ensureChecksumMapped(newHash, originalHash)
 		jobLogger.Printf("uploaded: \"%s\" (%s) <- (%s) \"%s\"", taskProcessor.ProcessedFilename, humanReadableSize(taskProcessor.ProcessedSize), humanReadableSize(taskProcessor.OriginalSize), taskProcessor.OriginalFilename)
 	}
 
 	return nil
 }
 
-func uploadUpstream(w http.ResponseWriter, r *http.Request, file io.ReadSeeker, name string) (err error) {
+func uploadUpstream(w http.ResponseWriter, r *http.Request, file io.ReadSeeker, name string, logger *customLogger) (err error) {
 	pipeReader, pipeWriter := io.Pipe()
 	multipartWriter := multipart.NewWriter(pipeWriter)
 	errChan := make(chan error, 1)
@@ -138,12 +143,113 @@ func uploadUpstream(w http.ResponseWriter, r *http.Request, file io.ReadSeeker, 
 		return fmt.Errorf("unable to POST: %w", err)
 	}
 	// Send immich response back to client
+	var body []byte
+	var readJSON bool
+
+	if resp.Header.Get("Content-Encoding") == "" && strings.Contains(resp.Header.Get("Content-Type"), "application/json") {
+		body, err = io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("unable to read upstream response: %w", err)
+		}
+		readJSON = true
+		if len(body) > 0 {
+			if updated, changed := rewriteUploadResponse(body); changed {
+				body = updated
+			}
+		}
+	}
+
 	setHeaders(w.Header(), resp.Header)
+
+	if readJSON {
+		if resp.Header.Get("Content-Encoding") == "" {
+			w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+		}
+		w.WriteHeader(resp.StatusCode)
+		if _, err = w.Write(body); err != nil {
+			return fmt.Errorf("unable to forward response to client: %v", err)
+		}
+		return nil
+	}
+
 	w.WriteHeader(resp.StatusCode)
-	_, err = io.Copy(w, resp.Body)
-	if err != nil {
+	if _, err = io.Copy(w, resp.Body); err != nil {
 		return fmt.Errorf("unable to forward response to client: %v", err)
 	}
 
 	return nil
+}
+
+// rewriteUploadResponse normalises the upload API response to use the original
+// asset checksum and file name so the client immediately sees the canonical values.
+func rewriteUploadResponse(body []byte) ([]byte, bool) {
+	var payload any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return body, false
+	}
+	if !rewriteUploadAsset(payload) {
+		return body, false
+	}
+	updated, err := json.Marshal(payload)
+	if err != nil {
+		return body, false
+	}
+	return updated, true
+}
+
+// rewriteUploadAsset walks the response payload recursively and fixes known asset fields.
+func rewriteUploadAsset(node any) bool {
+	switch v := node.(type) {
+	case map[string]any:
+		changed := false
+		var beforeChecksum, afterChecksum string
+		var beforeName, afterName string
+		if cs, ok := v["checksum"].(string); ok {
+			beforeChecksum = cs
+		}
+		if name, ok := v["originalFileName"].(string); ok {
+			beforeName = name
+		}
+		mapLock.RLock()
+		Asset(v).toOriginalAsset()
+		mapLock.RUnlock()
+		if cs, ok := v["checksum"].(string); ok {
+			afterChecksum = cs
+		}
+		if name, ok := v["originalFileName"].(string); ok {
+			afterName = name
+		}
+		if beforeChecksum != afterChecksum || beforeName != afterName {
+			changed = true
+		}
+		for _, value := range v {
+			if rewriteUploadAsset(value) {
+				changed = true
+			}
+		}
+		return changed
+	case []any:
+		changed := false
+		for _, value := range v {
+			if rewriteUploadAsset(value) {
+				changed = true
+			}
+		}
+		return changed
+	default:
+		return false
+	}
+}
+
+// ensureChecksumMapped waits until the fake checksum is visible in the in-memory map.
+func ensureChecksumMapped(fake, original string) {
+	for i := 0; i < 3; i++ {
+		mapLock.RLock()
+		_, ok := fakeToOriginalChecksum[fake]
+		mapLock.RUnlock()
+		if ok {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
