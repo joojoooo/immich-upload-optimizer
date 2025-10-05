@@ -23,12 +23,24 @@ func (wsMsg WebSocket42) getAction() string {
 	return ""
 }
 
-func (wsMsg WebSocket42) getAsset() Asset {
+func (wsMsg WebSocket42) getUploadSuccessAsset() Asset {
 	if len(wsMsg) < 2 {
 		return nil
 	}
 	if v, ok := wsMsg[1].(map[string]any); ok {
 		return v
+	}
+	return nil
+}
+
+func (wsMsg WebSocket42) getUploadReadyAsset() Asset {
+	if len(wsMsg) < 2 {
+		return nil
+	}
+	if v, ok := wsMsg[1].(map[string]any); ok {
+		if a, ok := v["asset"].(map[string]any); ok {
+			return a
+		}
 	}
 	return nil
 }
@@ -52,7 +64,14 @@ func handleWebSocketConn(cliConn, srvConn *websocket.Conn, logger *customLogger)
 				if err = json.Unmarshal(message[2:], &wsMsg); logger.Error(err, "json unmarshal") {
 					continue
 				}
-				if asset := wsMsg.getAsset(); asset != nil && wsMsg.getAction() == "on_upload_success" {
+				var asset Asset
+				switch wsMsg.getAction() {
+				case "on_upload_success":
+					asset = wsMsg.getUploadSuccessAsset()
+				case "AssetUploadReadyV1":
+					asset = wsMsg.getUploadReadyAsset()
+				}
+				if asset != nil {
 					mapLock.RLock()
 					asset.toOriginalAsset()
 					mapLock.RUnlock()

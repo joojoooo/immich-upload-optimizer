@@ -94,11 +94,14 @@ func (asset Asset) toOriginalAsset() {
 }
 
 func getChecksumReplacer(w http.ResponseWriter, r *http.Request, logger *customLogger) *Replacer {
-	if isDeltaSync(r) {
-		return &Replacer{w, r, logger, TypeDelta}
+	if isSyncStream(r) {
+		return &Replacer{w, r, logger, TypeSyncStream}
 	}
 	if isFullSync(r) {
 		return &Replacer{w, r, logger, TypeFull}
+	}
+	if isDeltaSync(r) {
+		return &Replacer{w, r, logger, TypeDelta}
 	}
 	/*
 		Since immich server v1.133.1
@@ -132,6 +135,7 @@ const (
 	TypeFull
 	TypeBucket
 	TypeAssetView
+	TypeSyncStream
 )
 
 func (replacer Replacer) Replace() (err error) {
@@ -157,6 +161,35 @@ func (replacer Replacer) Replace() (err error) {
 	if resp.StatusCode == http.StatusOK {
 		assetsKey := "assets"
 		switch replacer.typeId {
+		case TypeSyncStream:
+			fixedJsonBuf := make([]byte, len(jsonBuf)+1)
+			fixedJsonBuf[0] = '['
+			copy(fixedJsonBuf[1:], replaceAllBytes(jsonBuf, []byte("\n"), []byte(",")))
+			fixedJsonBuf[len(fixedJsonBuf)-1] = ']'
+			var streams []any
+			if err = json.Unmarshal(fixedJsonBuf, &streams); logger.Error(err, "json unmarshal") {
+				return
+			}
+			for _, value := range streams {
+				if v, ok := value.(map[string]any); ok {
+					if t, ok := v["type"].(string); ok && !slices.Contains([]string{"AssetV1", "AlbumAssetCreateV1", "AlbumAssetUpdateV1", "AlbumAssetBackfillV1", "PartnerAssetV1", "PartnerAssetBackfillV1"}, t) {
+						continue
+					}
+					if asset, ok := v["data"].(map[string]any); ok {
+						mapLock.RLock()
+						Asset(asset).toOriginalAsset()
+						mapLock.RUnlock()
+					}
+				}
+			}
+			if jsonBuf, err = json.Marshal(streams); logger.Error(err, "json marshal") {
+				return
+			}
+			if len(jsonBuf) > 0 {
+				jsonBuf = jsonBuf[1:]
+				jsonBuf[len(jsonBuf)-1] = '\n'
+			}
+			replaceAllBytes(jsonBuf, []byte("},{"), []byte("}\n{"))
 		case TypeDelta:
 			assetsKey = "upserted"
 			fallthrough

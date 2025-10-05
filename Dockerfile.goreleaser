@@ -1,9 +1,10 @@
 FROM debian:sid-slim AS builder
 ENV DEBIAN_FRONTEND=noninteractive
 # Build process inspired by: https://github.com/dooman87/imagemagick-docker/blob/main/Dockerfile.bookworm
-ARG LIBJXL_VERSION=0.11.1
-ARG LIBHEIF_VERSION=1.19.7
-ARG IMAGE_MAGICK_VERSION=7.1.1-47
+#ARG LIBJXL_VERSION=0.11.1
+ARG LIBAVIF_VERSION=1.3.0
+ARG LIBHEIF_VERSION=1.20.2
+ARG IMAGE_MAGICK_VERSION=7.1.2-3
 # Install build dependencies
 RUN apt-get -y update && apt-get install -qq -y --no-install-recommends \
     # Download tools
@@ -34,7 +35,7 @@ RUN apt-get -y update && apt-get install -qq -y --no-install-recommends \
 #    ldconfig /usr/local/lib
 
 # Build libavif (TODO: don't build from sources as soon as a new release includes the orientation fix: https://github.com/AOMediaCodec/libavif/issues/2727)
-RUN git clone https://github.com/AOMediaCodec/libavif.git && \
+RUN git clone -b v${LIBAVIF_VERSION} https://github.com/AOMediaCodec/libavif.git && \
     cmake -S libavif -B libavif/build -DAVIF_CODEC_AOM=SYSTEM -DAVIF_BUILD_APPS=ON && \
     cmake --build libavif/build --config Release --parallel && \
     cmake --install libavif/build && \

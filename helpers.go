@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"compress/gzip"
 	"fmt"
 	"github.com/andybalholm/brotli"
@@ -18,6 +19,10 @@ var filterFormKey = "assetData"
 
 func isAssetsUpload(r *http.Request) bool {
 	return r.Method == "POST" && r.URL.Path == "/api/assets" && strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data")
+}
+
+func isSyncStream(r *http.Request) bool {
+	return r.Method == "POST" && r.URL.Path == "/api/sync/stream"
 }
 
 func isFullSync(r *http.Request) bool {
@@ -46,6 +51,25 @@ func isOriginalDownloadPath(r *http.Request) (bool, []string) {
 	re := regexp.MustCompile(`^/api/assets/([a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12})/original$`)
 	matches := re.FindStringSubmatch(r.URL.String())
 	return r.Method == "GET" && len(matches) == 2, matches
+}
+
+func replaceAllBytes(byteSlice []byte, old []byte, new []byte) []byte {
+	oldLen := len(old)
+	newLen := len(new)
+	if newLen > oldLen {
+		return byteSlice
+	}
+	offset := 0
+	for {
+		i := bytes.Index(byteSlice[offset:], old)
+		if i == -1 {
+			break
+		}
+		offset += i
+		copy(byteSlice[offset:], new)
+		offset += newLen
+	}
+	return byteSlice
 }
 
 func humanReadableSize(size int64) string {

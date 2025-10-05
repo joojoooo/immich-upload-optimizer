@@ -84,6 +84,9 @@ func uploadUpstream(w http.ResponseWriter, r *http.Request, file io.ReadSeeker, 
 		defer multipartWriter.Close()
 		for key, values := range r.MultipartForm.Value {
 			for _, value := range values {
+				if key == "filename" {
+					value = name
+				}
 				err = multipartWriter.WriteField(key, value)
 				if err != nil {
 					cancel()
