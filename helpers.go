@@ -21,7 +21,7 @@ func isAssetsUpload(r *http.Request) bool {
 	return r.Method == "POST" && r.URL.Path == "/api/assets" && strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data")
 }
 
-func isSyncStream(r *http.Request) bool {
+func isStreamSync(r *http.Request) bool {
 	return r.Method == "POST" && r.URL.Path == "/api/sync/stream"
 }
 

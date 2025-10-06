@@ -94,8 +94,8 @@ func (asset Asset) toOriginalAsset() {
 }
 
 func getChecksumReplacer(w http.ResponseWriter, r *http.Request, logger *customLogger) *Replacer {
-	if isSyncStream(r) {
-		return &Replacer{w, r, logger, TypeSyncStream}
+	if isStreamSync(r) {
+		return &Replacer{w, r, logger, TypeStream}
 	}
 	if isFullSync(r) {
 		return &Replacer{w, r, logger, TypeFull}
@@ -135,7 +135,7 @@ const (
 	TypeFull
 	TypeBucket
 	TypeAssetView
-	TypeSyncStream
+	TypeStream
 )
 
 func (replacer Replacer) Replace() (err error) {
@@ -161,7 +161,7 @@ func (replacer Replacer) Replace() (err error) {
 	if resp.StatusCode == http.StatusOK {
 		assetsKey := "assets"
 		switch replacer.typeId {
-		case TypeSyncStream:
+		case TypeStream:
 			fixedJsonBuf := make([]byte, len(jsonBuf)+1)
 			fixedJsonBuf[0] = '['
 			copy(fixedJsonBuf[1:], replaceAllBytes(jsonBuf, []byte("\n"), []byte(",")))
