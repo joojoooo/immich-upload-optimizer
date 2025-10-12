@@ -27,6 +27,8 @@ Features that differentiate this fork from the original project:
   - A more compatible open image format with similar quality/size to JXL
 - **Automatic JXL/AVIF to JPG conversion**
   - Automatically converts JXL/AVIF to JPG on download for better compatibility
+- **Add Tags**
+  - Automatically add tags using provided tag IDs for uploaded assets.
 - **Easier tasks config**
   - Default passthrough of any unprocessed image/video instead of having to add an empty task and list all extensions to allow
   - No need for a command to remove the original file, it's still needed if processing produces a bigger file size. IUO will delete it
@@ -50,6 +52,7 @@ services:
       - TMPDIR=/tempfs # Writes uploaded files in RAM to improve disk lifespan (Remove if running low on RAM)
       #- IUO_DOWNLOAD_JPG_FROM_JXL=true # Uncomment to enable JXL to JPG conversion
       #- IUO_DOWNLOAD_JPG_FROM_AVIF=true # Uncomment to enable AVIF to JPG conversion
+      #- IUO_TAG_IDS="<tag_id>,<tag_id>,<tag_id>"
     volumes:
       #- /path/to/your/host/dir:/IUO # Keep the checksums and tasks files between updates by defining a volume
     restart: unless-stopped
@@ -79,6 +82,7 @@ All flags are also available as environment variables using the prefix `IUO_` fo
 - `-checksums_file`: Path to the checksums file (default: `checksums.csv`)
 - `-download_jpg_from_jxl`: Converts JXL images to JPG on download for compatibility (default: `false`)
 - `-download_jpg_from_avif`: Converts AVIF images to JPG on download for compatibility (default: `false`)
+- `-tag_ids`: Comma-separated list of tag IDs to add to every asset (default: `""`)
 
 ## 📸 Images
 **[AVIF](https://aomediacodec.github.io/av1-avif/)** is used by default, saving **~80%** space while maintaining the same perceived quality (lossy conversion)

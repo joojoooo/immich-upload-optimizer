@@ -36,6 +36,8 @@ var configFile string
 var checksumsFile string
 var downloadJpgFromJxl bool
 var downloadJpgFromAvif bool
+var tagIDsStr string
+var tagIDs []string
 
 var config *Config
 
@@ -47,6 +49,7 @@ func init() {
 	viper.BindEnv("tasks_file")
 	viper.BindEnv("download_jpg_from_jxl")
 	viper.BindEnv("download_jpg_from_avif")
+	viper.BindEnv("tag_ids")
 
 	viper.SetDefault("upstream", "")
 	viper.SetDefault("listen", ":2284")
@@ -54,6 +57,7 @@ func init() {
 	viper.SetDefault("checksums_file", "checksums.csv")
 	viper.SetDefault("download_jpg_from_jxl", false)
 	viper.SetDefault("download_jpg_from_avif", false)
+	viper.SetDefault("tag_ids", "")
 
 	flag.BoolVar(&showVersion, "version", false, "Show the current version")
 	flag.StringVar(&upstreamURL, "upstream", viper.GetString("upstream"), "Upstream URL. Example: http://immich-server:2283")
@@ -62,11 +66,19 @@ func init() {
 	flag.StringVar(&checksumsFile, "checksums_file", viper.GetString("checksums_file"), "Path to the checksums file")
 	flag.BoolVar(&downloadJpgFromJxl, "download_jpg_from_jxl", viper.GetBool("download_jpg_from_jxl"), "Converts JXL images to JPG on download for wider compatibility")
 	flag.BoolVar(&downloadJpgFromAvif, "download_jpg_from_avif", viper.GetBool("download_jpg_from_avif"), "Converts AVIF images to JPG on download for wider compatibility")
+	flag.StringVar(&tagIDsStr, "tag_ids", viper.GetString("tag_ids"), "Comma-separated list of tag IDs")
 	flag.Parse()
 
 	if showVersion {
 		fmt.Println(printVersion())
 		os.Exit(0)
+	}
+
+	// Process tags
+	var err error
+	tagIDs, err = getTagIDs()
+	if err != nil {
+		baseLogger.Fatalf("Error parsing tag IDs: %s with %v", tagIDsStr, err)
 	}
 
 	validateInput()
@@ -106,6 +118,21 @@ func main() {
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Error starting immich-upload-optimizer: %v", err)
 	}
+}
+
+// getTagIDs parses tagIDsStr into a list of tag IDs
+func getTagIDs() ([]string, error) {
+	if tagIDsStr == "" {
+		return []string{}, nil
+	}
+	ids := strings.Split(tagIDsStr, ",")
+	// deals with empty sections e.g "id1,,,id2"
+	for i, id := range ids {
+		if strings.ContainsAny(id, " \t\n\r") || id == "" {
+			return nil, fmt.Errorf("whitespaces or empty values at tag_ids at position %d", i+1)
+		}
+	}
+	return ids, nil
 }
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {
