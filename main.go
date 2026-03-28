@@ -108,6 +108,7 @@ func main() {
 	}
 	// Proxy
 	proxy = httputil.NewSingleHostReverseProxy(remote)
+        proxy.FlushInterval = -1
 	if DevMITMproxy {
 		proxy.Transport = http.DefaultTransport
 		proxy.Transport.(*http.Transport).Proxy = http.ProxyURL(proxyUrl)
@@ -147,6 +148,10 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		logger.Error(err, "")
 		return
 	default:
+		if r.URL.Path == "/api/sync/stream" {
+			// Stream endpoint uses long-lived responses incompatible with checksum replacement
+			break
+		}
 		if replacer := getChecksumReplacer(w, r, logger); replacer != nil {
 			logger.SetErrPrefix(fmt.Sprintf("replacer %d", replacer.typeId))
 			if err = replacer.Replace(); err == nil {
