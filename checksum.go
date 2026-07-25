@@ -71,17 +71,6 @@ func setChecksumPair(fake, original string) bool {
 	return true
 }
 
-func addChecksums(fake, original string) {
-	go func() {
-		mapLock.Lock()
-		changed := setChecksumPair(fake, original)
-		mapLock.Unlock()
-		if changed {
-			_ = appendToCSV(fake, original)
-		}
-	}()
-}
-
 func appendToCSV(key, value string) error {
 	file, err := os.OpenFile(checksumsFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {

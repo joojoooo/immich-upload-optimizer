@@ -218,21 +218,40 @@ func newJob(r *http.Request, w http.ResponseWriter, logger *customLogger) error 
 			_ = taskProcessor.CleanOriginalFile() // Save RAM before upload (tmpfs)
 		}
 	}
+	var newHash string
+	var checksumAdded bool
+	if !uploadOriginal {
+		// Register the mapping before uploading: Immich emits the upload-ready
+		// websocket event as soon as it accepts the asset, so the rewrite in
+		// handleWebSocketConn needs the pair to be in the map already.
+		if newHash, err = SHA1(uploadFile); err != nil {
+			return fmt.Errorf("job %d: new sha1: %w", jobID, err)
+		}
+		mapLock.Lock()
+		checksumAdded = setChecksumPair(newHash, originalHash)
+		mapLock.Unlock()
+	}
 	// Upload the original file or processed one if a task was found
 	err = uploadUpstream(w, r, uploadFile, uploadFilename, formValues)
 	if err != nil {
+		if checksumAdded {
+			// Drop the mapping again, otherwise a retry of the same file would
+			// see it as already known and never write it to the CSV.
+			mapLock.Lock()
+			delete(fakeToOriginalChecksum, newHash)
+			delete(originalToFakeChecksum, originalHash)
+			mapLock.Unlock()
+		}
 		http.Error(w, "failed to process file, view IUO logs for more info", http.StatusConflict)
 		return fmt.Errorf("job %d: upload upstream: %w", jobID, err)
 	}
 	if uploadOriginal {
 		jobLogger.Print(greenBold("uploaded original:") + " \"" + white(fileName) + "\" " + greenBold("(%s)", humanReadableSize(fileSize)))
 	} else {
-		if newHash, err := SHA1(taskProcessor.ProcessedFile); err == nil {
-			addChecksums(newHash, originalHash)
-			jobLogger.Print(greenBold("uploaded:") + " \"" + white(taskProcessor.ProcessedFilename) + "\" " + greenBold("(%s) <- (%s)", humanReadableSize(taskProcessor.ProcessedSize), humanReadableSize(taskProcessor.OriginalSize)) + " \"" + white(taskProcessor.OriginalFilename) + "\"")
-		} else {
-			return fmt.Errorf("job %d: new sha1: %w", jobID, err)
+		if checksumAdded {
+			_ = appendToCSV(newHash, originalHash)
 		}
+		jobLogger.Print(greenBold("uploaded:") + " \"" + white(taskProcessor.ProcessedFilename) + "\" " + greenBold("(%s) <- (%s)", humanReadableSize(taskProcessor.ProcessedSize), humanReadableSize(taskProcessor.OriginalSize)) + " \"" + white(taskProcessor.OriginalFilename) + "\"")
 	}
 
 	return nil
