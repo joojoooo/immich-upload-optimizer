@@ -68,7 +68,8 @@ func handleWebSocketConn(cliConn, srvConn *websocket.Conn, logger *customLogger)
 				switch wsMsg.getAction() {
 				case "on_upload_success":
 					asset = wsMsg.getUploadSuccessAsset()
-				case "AssetUploadReadyV1":
+				// Immich v3 emits the V2 events, older servers AssetUploadReadyV1
+				case "AssetUploadReadyV1", "AssetUploadReadyV2", "AssetEditReadyV2":
 					asset = wsMsg.getUploadReadyAsset()
 				}
 				if asset != nil {
