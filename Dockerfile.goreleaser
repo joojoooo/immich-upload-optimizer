@@ -1,4 +1,5 @@
-FROM debian:sid-slim AS builder
+FROM debian:sid-slim AS base
+FROM base AS builder
 ENV DEBIAN_FRONTEND=noninteractive
 # Build process inspired by: https://github.com/dooman87/imagemagick-docker/blob/main/Dockerfile.bookworm
 #ARG LIBJXL_VERSION=0.11.2
@@ -74,7 +75,7 @@ RUN CAESIUM_VER=$(curl -sf https://api.github.com/repos/Lymphatus/caesium-clt/re
     mv "/tmp/caesiumclt" /usr/local/bin/caesiumclt && \
     rm -fr /tmp/*
 
-FROM debian:sid-slim
+FROM base
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get -y update && apt-get install -qq -y --no-install-recommends \
     #libvips-tools \
